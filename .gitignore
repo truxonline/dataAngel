@@ -1,0 +1,18 @@
+# Ruff cache
+.ruff_cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Go binaries
+/bin/
+/vendor/
+
+# OS
+.DS_Store
+
+# IDE
+*.swp
+*.swo
