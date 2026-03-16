@@ -1,0 +1,76 @@
+# generated: 2026-03-16
+# project: dataAngel
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Mark epic as 'in-progress' when starting work on its first story
+# - SM typically creates next story ONLY after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then Dev runs code-review (fresh context, ideally different LLM)
+
+generated: 2026-03-16
+project: dataAngel
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Initial Setup & Data Discovery
+  epic-1: in-progress
+  1-1-configurer-data-guard-via-annotations-k8s: ready-for-dev
+  1-2-init-container-detect-healthy-data: ready-for-dev
+  1-3-restore-conditionnel-ou-skip: ready-for-dev
+  1-4-cli-verify-backup-state: ready-for-dev
+  epic-1-retrospective: optional
+
+  # Epic 2: Backup Continu & Synchronisation
+  epic-2: in-progress
+  2-1-sidecar-litestream-backup-sqlite: ready-for-dev
+  2-2-sidecar-rclone-sync-filesystem: ready-for-dev
+  2-3-graceful-shutdown-with-wal-flush: ready-for-dev
+  epic-2-retrospective: optional
+
+  # Epic 3: Validation & Intégrité Données
+  epic-3: in-progress
+  3-1-pre-backup-validation-sqlite-yaml: ready-for-dev
+  3-2-post-restore-validation: ready-for-dev
+  epic-3-retrospective: optional
+
+  # Epic 4: State Management & Locking
+  epic-4: in-progress
+  4-1-s3-distributed-lock-implementation: ready-for-dev
+  4-2-lock-ttl-steal-mechanism: ready-for-dev
+  epic-4-retrospective: optional
+
+  # Epic 5: Observability & Alerting
+  epic-5: in-progress
+  5-1-prometheus-metrics-exporter: ready-for-dev
+  5-2-alerting-backup-failure: ready-for-dev
+  5-3-alerting-restore-performed: ready-for-dev
+  epic-5-retrospective: optional
+
+  # Epic 6: Troubleshooting & CLI Tools
+  epic-6: in-progress
+  6-1-cli-verify-backup-state: ready-for-dev
+  6-2-cli-force-release-lock: ready-for-dev
+  epic-6-retrospective: optional
