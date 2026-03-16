@@ -1,6 +1,6 @@
 # Story 2.1: Sidecar Litestream Backup SQLite
 
-Status: review
+Status: done
 
 ## Story
 
