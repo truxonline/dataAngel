@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-with-rclone-sidecar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        image: my-app:latest
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      - name: rclone-sidecar
+        image: charchess/sidecar-rclone:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: data
+          mountPath: /data
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        args:
+        - sync
+        - /data
+        - s3:backup-bucket
+        - --config
+        - /config/rclone.conf
+        - --transfers
+        - "4"
+        - --checkers
+        - "8"
+        - --stats
+        - "60s"
+      volumes:
+      - name: config
+        configMap:
+          name: rclone-config
+      - name: data
+        emptyDir: {}

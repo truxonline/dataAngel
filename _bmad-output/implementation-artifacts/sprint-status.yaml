@@ -44,11 +44,11 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Backup Continu & Synchronisation
-  epic-2: in-progress
+  epic-2: done
   2-1-sidecar-litestream-backup-sqlite: done
-  2-2-sidecar-rclone-sync-filesystem: ready-for-dev
-  2-3-graceful-shutdown-with-wal-flush: ready-for-dev
-  epic-2-retrospective: optional
+  2-2-sidecar-rclone-sync-filesystem: done
+  2-3-graceful-shutdown-with-wal-flush: done
+  epic-2-retrospective: done
 
   # Epic 3: Validation & Intégrité Données
   epic-3: backlog
