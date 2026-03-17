@@ -43,7 +43,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: charchess/dataguard-agent
+          images: charchess/dataangel
           tags: |
             type=ref,event=branch
             type=sha,prefix=
