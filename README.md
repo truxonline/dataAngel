@@ -117,6 +117,7 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 | Component | Purpose |
 |-----------|---------|
 | `init` | Restore data on pod startup if needed |
+| `sidecar` | Continuous backup daemon (Litestream + Rclone) |
 | `cli` | Verify backups, force-release locks |
 | `metrics` | Prometheus metrics exporter |
 
@@ -133,6 +134,45 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 | `DATA_GUARD_LOCAL_PATH` | Yes | Local path to restore to |
 | `DATA_GUARD_CHECKSUM` | Yes | Expected SHA256 checksum |
 | `DATA_GUARD_AWS_REGION` | No | AWS region (default: `us-east-1`) |
+
+### Sidecar Daemon
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATA_GUARD_BUCKET` | Yes | - | S3 bucket name |
+| `DATA_GUARD_S3_ENDPOINT` | No | - | Custom S3 endpoint URL |
+| `DATA_GUARD_SQLITE_PATHS` | No | - | Comma-separated SQLite paths for Litestream |
+| `DATA_GUARD_FS_PATHS` | No | - | Comma-separated filesystem paths for Rclone |
+| `DATA_GUARD_YAML_PATHS` | No | - | Comma-separated YAML paths to validate |
+| `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Rclone sync interval |
+| `DATA_GUARD_METRICS_PORT` | No | `9090` | Prometheus metrics port |
+| `DATA_GUARD_SHUTDOWN_TIMEOUT` | No | `15s` | Graceful shutdown timeout |
+
+**Usage:**
+
+```yaml
+containers:
+- name: dataguard-sidecar
+  image: charchess/dataangel:latest
+  command: ["./sidecar"]
+  env:
+  - name: DATA_GUARD_BUCKET
+    value: "my-backup-bucket"
+  - name: DATA_GUARD_SQLITE_PATHS
+    value: "/data/app.db"
+  - name: DATA_GUARD_FS_PATHS
+    value: "/config"
+  - name: DATA_GUARD_RCLONE_INTERVAL
+    value: "300s"
+  ports:
+  - containerPort: 9090
+    name: metrics
+  volumeMounts:
+  - name: data
+    mountPath: /data
+  - name: config
+    mountPath: /config
+```
 
 ### CLI
 
