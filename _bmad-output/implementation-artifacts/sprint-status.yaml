@@ -36,7 +36,7 @@ story_location: _bmad-output/implementation-artifacts
 
 development_status:
   # Epic 1: Initial Setup & Data Discovery
-  epic-1: backlog
+  epic-1: in-progress
   1-1-configurer-data-guard-via-annotations-k8s: done
   1-2-init-container-detect-healthy-data: ready-for-dev
   1-3-restore-conditionnel-ou-skip: ready-for-dev
