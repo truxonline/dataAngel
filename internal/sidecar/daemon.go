@@ -55,7 +55,11 @@ func (d *Daemon) Start(ctx context.Context) error {
 	// Start metrics server
 	eg.Go(func() error {
 		log.Printf("Starting metrics server on port %d", d.metricsPort)
-		// Placeholder for metrics server
+		metrics := GetMetrics()
+		addr := fmt.Sprintf(":%d", d.metricsPort)
+		if err := metrics.StartServer(addr); err != nil {
+			return fmt.Errorf("failed to start metrics server: %w", err)
+		}
 		<-egCtx.Done()
 		return nil
 	})

@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 RUN apk add --no-cache git
 
@@ -32,6 +32,17 @@ COPY cmd/data-guard-cli/. /build/cmd/data-guard-cli/
 COPY pkg/s3/. /build/pkg/s3/
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o cli .
 
+# Build sidecar
+COPY cmd/sidecar/go.mod cmd/sidecar/go.sum* /build/cmd/sidecar/
+COPY internal/sidecar/go.mod internal/sidecar/go.sum /build/internal/sidecar/
+
+WORKDIR /build/cmd/sidecar
+RUN go mod download
+
+COPY cmd/sidecar/. /build/cmd/sidecar/
+COPY internal/sidecar/. /build/internal/sidecar/
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o sidecar .
+
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
@@ -43,6 +54,7 @@ WORKDIR /home/dataguard
 
 COPY --from=builder --chown=dataguard:dataguard /build/cmd/init/init .
 COPY --from=builder --chown=dataguard:dataguard /build/cmd/data-guard-cli/cli .
+COPY --from=builder --chown=dataguard:dataguard /build/cmd/sidecar/sidecar .
 
 USER dataguard
 
