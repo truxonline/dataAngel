@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+type MockCommandRunner struct {
+	err error
+}
+
+func (m *MockCommandRunner) Run(ctx context.Context, name string, args ...string) error {
+	if m.err != nil {
+		return m.err
+	}
+	<-ctx.Done()
+	return ctx.Err()
+}
+
 func TestDaemon(t *testing.T) {
 	t.Run("should create daemon with valid config", func(t *testing.T) {
 		// ARRANGE

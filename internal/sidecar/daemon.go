@@ -8,43 +8,28 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Daemon manages the sidecar daemon lifecycle
 type Daemon struct {
 	config      Config
-	litestream  []*LitestreamReplicator
-	rclone      *RcloneSyncer
+	litestream  []*LitestreamRunner
+	rclone      *RcloneRunner
 	metricsPort int
 }
 
-// NewDaemon creates a new sidecar daemon
 func NewDaemon(config Config) *Daemon {
-	// Initialize litestream replicators for each SQLite path
-	var litestreamReplicators []*LitestreamReplicator
+	var litestreamRunners []*LitestreamRunner
 	for _, dbPath := range config.SqlitePaths {
-		lsConfig := LitestreamConfig{
-			DBPath:     dbPath,
-			S3Bucket:   config.Bucket,
-			S3Path:     fmt.Sprintf("backups/%s", dbPath),
-			S3Endpoint: config.S3Endpoint,
-		}
-		litestreamReplicators = append(litestreamReplicators, NewLitestreamReplicator(lsConfig))
+		configPath := fmt.Sprintf("/etc/litestream/%s.yml", dbPath)
+		litestreamRunners = append(litestreamRunners, NewLitestreamRunner(configPath))
 	}
 
-	// Initialize rclone syncer for file paths
 	var rclonePaths []string
 	rclonePaths = append(rclonePaths, config.FsPaths...)
 	rclonePaths = append(rclonePaths, config.YAMLPaths...)
 
-	rcloneConfig := RcloneConfig{
-		Paths:    rclonePaths,
-		S3Bucket: config.Bucket,
-		Interval: config.RcloneInterval,
-	}
-
 	return &Daemon{
 		config:      config,
-		litestream:  litestreamReplicators,
-		rclone:      NewRcloneSyncer(rcloneConfig),
+		litestream:  litestreamRunners,
+		rclone:      NewRcloneRunner(config.RcloneInterval, rclonePaths, config.Bucket),
 		metricsPort: config.MetricsPort,
 	}
 }
@@ -53,11 +38,10 @@ func NewDaemon(config Config) *Daemon {
 func (d *Daemon) Start(ctx context.Context) error {
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	// Start litestream replicators
 	for _, replicator := range d.litestream {
-		r := replicator // Capture for closure
+		r := replicator
 		eg.Go(func() error {
-			log.Printf("Starting litestream replicator for %s", r.config.DBPath)
+			log.Printf("Starting litestream replicator for %s", r.ConfigPath)
 			return r.Start(egCtx)
 		})
 	}
@@ -65,8 +49,7 @@ func (d *Daemon) Start(ctx context.Context) error {
 	// Start rclone sync loop
 	eg.Go(func() error {
 		log.Printf("Starting rclone sync loop with interval %v", d.config.RcloneInterval)
-		d.rclone.StartLoop(egCtx)
-		return nil
+		return d.rclone.Start(egCtx)
 	})
 
 	// Start metrics server
@@ -88,4 +71,10 @@ func (d *Daemon) Start(ctx context.Context) error {
 	<-shutdownCtx.Done()
 
 	return err
+}
+
+// RunSidecar starts the complete sidecar daemon (convenience wrapper for Daemon.Start)
+func RunSidecar(ctx context.Context, config Config) error {
+	daemon := NewDaemon(config)
+	return daemon.Start(ctx)
 }
