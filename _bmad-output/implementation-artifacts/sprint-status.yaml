@@ -51,10 +51,10 @@ development_status:
   epic-2-retrospective: done
 
   # Epic 3: Validation & Intégrité Données
-  epic-3: backlog
-  3-1-pre-backup-validation-sqlite-yaml: ready-for-dev
-  3-2-post-restore-validation: ready-for-dev
-  epic-3-retrospective: optional
+  epic-3: done
+  3-1-pre-backup-validation-sqlite-yaml: done
+  3-2-post-restore-validation: done
+  epic-3-retrospective: done
 
   # Epic 4: State Management & Locking
   epic-4: backlog
