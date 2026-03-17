@@ -1,0 +1,43 @@
+# Build stage
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Copy go.mod files
+COPY go.mod go.sum ./
+COPY cmd/sidecar/go.mod cmd/sidecar/
+COPY internal/sidecar/go.mod internal/sidecar/
+
+# Download dependencies
+RUN cd cmd/sidecar && go mod download
+
+# Copy source code
+COPY cmd/sidecar ./cmd/sidecar
+COPY internal/sidecar ./internal/sidecar
+COPY internal/validation ./internal/validation
+
+# Build binary
+RUN cd cmd/sidecar && CGO_ENABLED=0 GOOS=linux go build -o /build/sidecar .
+
+# Runtime stage
+FROM alpine:3.19
+
+RUN apk add --no-cache \
+    ca-certificates \
+    litestream \
+    rclone \
+    tzdata
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /build/sidecar /app/sidecar
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:9090/metrics || exit 1
+
+ENTRYPOINT ["/app/sidecar"]

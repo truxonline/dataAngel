@@ -1,0 +1,66 @@
+name: Sidecar Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'cmd/sidecar/**'
+      - 'internal/sidecar/**'
+      - '.github/workflows/sidecar-tests.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'cmd/sidecar/**'
+      - 'internal/sidecar/**'
+      - '.github/workflows/sidecar-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Run tests
+        working-directory: ./internal/sidecar
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./internal/sidecar/coverage.out
+          flags: sidecar
+          fail_ci_if_error: false
+
+      - name: Build sidecar binary
+        working-directory: ./cmd/sidecar
+        run: go build -o sidecar .
+
+      - name: Verify binary
+        working-directory: ./cmd/sidecar
+        run: |
+          ./sidecar 2>&1 | grep -q "DATA_GUARD_BUCKET" && echo "Binary validation passed"
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.sidecar
+          push: false
+          tags: dataangel-sidecar:latest
