@@ -44,7 +44,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            dataguard/agent
+            charchess/dataguard-agent
             ghcr.io/${{ github.repository }}/agent
           tags: |
             type=ref,event=branch
