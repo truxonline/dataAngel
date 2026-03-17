@@ -30,7 +30,11 @@ utilise bmad-help pour bien identifier l'etape suivante
 - Story 3.2: Post-restore Validation ✅
 - Rétrospective Epic 3 ✅
 
+### Sprint 4 (Epic 4) - COMPLETED
+- Story 4.1: S3 Distributed Lock Implementation ✅
+- Story 4.2: Lock TTL + Steal Mechanism ✅
+- Rétrospective Epic 4 ✅
+
 ### Next Steps
-- Epic 4: State Management & Locking (ready-for-dev)
 - Epic 5: Observability & Alerting (ready-for-dev)
 - Epic 6: Troubleshooting & CLI Tools (ready-for-dev)
