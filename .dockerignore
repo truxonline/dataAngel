@@ -1,0 +1,15 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Build artifacts
+bin/
+dist/
+
+# IDE
+.vscode/
+.idea/

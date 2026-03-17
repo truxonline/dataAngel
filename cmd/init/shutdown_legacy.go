@@ -87,6 +87,7 @@ func GracefulShutdown(ctx context.Context, timeout time.Duration) error {
 	return handler.HandleShutdown(ctx, flushFunc)
 }
 
+/*
 func main() {
 	ctx := context.Background()
 	timeout := 30 * time.Second
@@ -98,3 +99,4 @@ func main() {
 
 	fmt.Println("Shutdown completed successfully")
 }
+*/
