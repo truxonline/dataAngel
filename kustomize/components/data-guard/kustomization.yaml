@@ -1,0 +1,55 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+metadata:
+  name: data-guard
+
+# Variables d'environnement pour les sidecars
+commonLabels:
+  data-guard.io/enabled: "true"
+
+# Patch pour injecter les sidecars conditionnellement
+patches:
+  - target:
+      kind: Deployment
+      patch: |-
+        - op: add
+          path: /spec/template/spec/containers/-
+          value:
+            name: data-guard-init
+            image: charchess/data-guard-init:latest
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: DATA_GUARD_ENABLED
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['data-guard.io/enabled']
+              - name: DATA_GUARD_BUCKET
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['data-guard.io/bucket']
+              - name: DATA_GUARD_SQLITE_PATHS
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+              - name: DATA_GUARD_FS_PATHS
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['data-guard.io/fs-paths']
+              - name: DATA_GUARD_S3_ENDPOINT
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              - name: DATA_GUARD_FULL_LOGS
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['data-guard.io/full-logs']
+            volumeMounts:
+              - name: data
+                mountPath: /data
+                readOnly: false
+
+# Images à remplacer
+images:
+  - name: charchess/data-guard-init
+    newTag: latest
