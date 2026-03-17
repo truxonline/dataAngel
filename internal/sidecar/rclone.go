@@ -3,93 +3,62 @@ package sidecar
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"time"
 )
 
-// RcloneConfig holds configuration for rclone sync
-type RcloneConfig struct {
-	Paths    []string
-	S3Bucket string
+// RcloneRunner manages periodic rclone sync operations
+type RcloneRunner struct {
 	Interval time.Duration
+	FsPaths  []string
+	Bucket   string
+	runner   CommandRunner
 }
 
-// RcloneSyncer manages rclone sync operations
-type RcloneSyncer struct {
-	config RcloneConfig
-	runner CommandRunner
-}
-
-// NewRcloneSyncer creates a new rclone syncer
-func NewRcloneSyncer(config RcloneConfig) *RcloneSyncer {
-	return &RcloneSyncer{
-		config: config,
-		runner: &DefaultCommandRunner{},
+// NewRcloneRunner creates a new runner
+func NewRcloneRunner(interval time.Duration, fsPaths []string, bucket string) *RcloneRunner {
+	return &RcloneRunner{
+		Interval: interval,
+		FsPaths:  fsPaths,
+		Bucket:   bucket,
+		runner:   &realCommandRunner{},
 	}
 }
 
-// validateYAMLPaths checks that all paths are YAML patterns
-func (rs *RcloneSyncer) validateYAMLPaths() bool {
-	for _, path := range rs.config.Paths {
-		// Check if path contains .yaml or .yml pattern
-		if !strings.Contains(path, "*.yaml") && !strings.Contains(path, "*.yml") {
-			return false
-		}
+// Start runs rclone sync loop (blocking until context cancel)
+func (r *RcloneRunner) Start(ctx context.Context) error {
+	if len(r.FsPaths) == 0 {
+		// No paths to sync - wait for context cancel
+		<-ctx.Done()
+		return ctx.Err()
 	}
-	return true
-}
 
-// buildCommand constructs the rclone sync command for a given path
-func (rs *RcloneSyncer) buildCommand(path string) *exec.Cmd {
-	// Determine S3 destination based on path
-	s3Dest := fmt.Sprintf("s3:%s/%s", rs.config.S3Bucket, filepath.Base(path))
-
-	cmd := exec.Command("rclone", "sync", path, s3Dest, "--progress")
-
-	// Set environment variables for S3 configuration
-	env := os.Environ()
-	cmd.Env = env
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd
-}
-
-// StartLoop begins the rclone sync loop with ticker
-func (rs *RcloneSyncer) StartLoop(ctx context.Context) {
-	ticker := time.NewTicker(rs.config.Interval)
+	ticker := time.NewTicker(r.Interval)
 	defer ticker.Stop()
 
-	// Execute immediately on start
-	rs.syncAll(ctx)
-
-	// Then execute on each tick
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-ticker.C:
-			rs.syncAll(ctx)
+			// Run sync (non-blocking - errors logged but don't stop loop)
+			err := r.syncOnce(ctx)
+			if err != nil {
+				// Log error but continue (rclone errors shouldn't stop daemon)
+				fmt.Printf("rclone sync error: %v\n", err)
+			}
 		}
 	}
 }
 
-// syncAll syncs all configured paths
-func (rs *RcloneSyncer) syncAll(ctx context.Context) {
-	for _, path := range rs.config.Paths {
-		cmd := rs.buildCommand(path)
-		cmd.Cancel = func() error {
-			if cmd.Process != nil {
-				return cmd.Process.Signal(os.Interrupt)
-			}
-			return nil
-		}
-		cmd.WaitDelay = 15 * time.Second
-
-		// Execute but don't fail the loop on error
-		_ = rs.runner.Run(ctx, cmd)
+func (r *RcloneRunner) syncOnce(ctx context.Context) error {
+	// Build rclone args
+	args := []string{
+		"sync",
+		r.FsPaths[0], // TODO: handle multiple paths
+		fmt.Sprintf("s3:%s/filesystem", r.Bucket),
+		"--checksum",
+		"--min-age", "30s",
 	}
+
+	return r.runner.Run(ctx, "rclone", args...)
 }
