@@ -16,8 +16,8 @@ patches:
         - op: add
           path: /spec/template/spec/containers/-
           value:
-            name: data-guard-init
-            image: charchess/data-guard-init:latest
+            name: data-guard
+            image: charchess/dataangel:latest
             imagePullPolicy: IfNotPresent
             env:
               - name: DATA_GUARD_ENABLED
@@ -44,6 +44,7 @@ patches:
                 valueFrom:
                   fieldRef:
                     fieldPath: metadata.annotations['data-guard.io/full-logs']
+            command: ["./init"]
             volumeMounts:
               - name: data
                 mountPath: /data
@@ -51,5 +52,5 @@ patches:
 
 # Images à remplacer
 images:
-  - name: charchess/data-guard-init
+  - name: charchess/dataangel
     newTag: latest
