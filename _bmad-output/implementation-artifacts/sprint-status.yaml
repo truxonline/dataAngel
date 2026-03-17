@@ -57,10 +57,10 @@ development_status:
   epic-3-retrospective: done
 
   # Epic 4: State Management & Locking
-  epic-4: backlog
-  4-1-s3-distributed-lock-implementation: ready-for-dev
-  4-2-lock-ttl-steal-mechanism: ready-for-dev
-  epic-4-retrospective: optional
+  epic-4: done
+  4-1-s3-distributed-lock-implementation: done
+  4-2-lock-ttl-steal-mechanism: done
+  epic-4-retrospective: done
 
   # Epic 5: Observability & Alerting
   epic-5: backlog
