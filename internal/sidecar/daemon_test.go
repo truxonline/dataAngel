@@ -46,6 +46,8 @@ func TestDaemon(t *testing.T) {
 	})
 
 	t.Run("should start daemon with errgroup", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
 		// ARRANGE
 		config := Config{
 			Bucket:          "test-bucket",
@@ -58,6 +60,10 @@ func TestDaemon(t *testing.T) {
 			ShutdownTimeout: 15 * time.Second,
 		}
 		daemon := NewDaemon(config)
+
+		for _, ls := range daemon.litestream {
+			ls.ConfigPath = tmpDir + "/litestream.yml"
+		}
 
 		// Mock the command runners
 		mockRunner := &MockCommandRunner{}
@@ -79,6 +85,8 @@ func TestDaemon(t *testing.T) {
 	})
 
 	t.Run("should handle graceful shutdown", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
 		// ARRANGE
 		config := Config{
 			Bucket:          "test-bucket",
@@ -91,6 +99,10 @@ func TestDaemon(t *testing.T) {
 			ShutdownTimeout: 15 * time.Second,
 		}
 		daemon := NewDaemon(config)
+
+		for _, ls := range daemon.litestream {
+			ls.ConfigPath = tmpDir + "/litestream.yml"
+		}
 
 		// Mock the command runners
 		mockRunner := &MockCommandRunner{}

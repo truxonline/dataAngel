@@ -8,19 +8,21 @@ import (
 
 // RcloneRunner manages periodic rclone sync operations
 type RcloneRunner struct {
-	Interval time.Duration
-	FsPaths  []string
-	Bucket   string
-	runner   CommandRunner
+	Interval   time.Duration
+	FsPaths    []string
+	Bucket     string
+	S3Endpoint string
+	runner     CommandRunner
 }
 
 // NewRcloneRunner creates a new runner
-func NewRcloneRunner(interval time.Duration, fsPaths []string, bucket string) *RcloneRunner {
+func NewRcloneRunner(interval time.Duration, fsPaths []string, bucket, s3Endpoint string) *RcloneRunner {
 	return &RcloneRunner{
-		Interval: interval,
-		FsPaths:  fsPaths,
-		Bucket:   bucket,
-		runner:   &realCommandRunner{},
+		Interval:   interval,
+		FsPaths:    fsPaths,
+		Bucket:     bucket,
+		S3Endpoint: s3Endpoint,
+		runner:     &realCommandRunner{},
 	}
 }
 
@@ -51,13 +53,18 @@ func (r *RcloneRunner) Start(ctx context.Context) error {
 }
 
 func (r *RcloneRunner) syncOnce(ctx context.Context) error {
-	// Build rclone args
 	args := []string{
 		"sync",
-		r.FsPaths[0], // TODO: handle multiple paths
-		fmt.Sprintf("s3:%s/filesystem", r.Bucket),
+		r.FsPaths[0],
+		fmt.Sprintf(":s3:%s/filesystem", r.Bucket),
+		"--s3-provider", "AWS",
+		"--s3-env-auth",
 		"--checksum",
 		"--min-age", "30s",
+	}
+
+	if r.S3Endpoint != "" {
+		args = append(args, "--s3-endpoint", r.S3Endpoint)
 	}
 
 	return r.runner.Run(ctx, "rclone", args...)

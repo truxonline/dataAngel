@@ -45,7 +45,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o sidecar .
 
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+RUN apk update && apk --no-cache add ca-certificates rclone curl && \
+    curl -L https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.tar.gz | tar xz -C /usr/local/bin litestream
 
 RUN addgroup -g 1000 dataguard && \
     adduser -u 1000 -G dataguard -s /bin/sh -D dataguard

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -18,7 +19,7 @@ type Daemon struct {
 func NewDaemon(config Config) *Daemon {
 	var litestreamRunners []*LitestreamRunner
 	for _, dbPath := range config.SqlitePaths {
-		configPath := fmt.Sprintf("/etc/litestream/%s.yml", dbPath)
+		configPath := fmt.Sprintf("/etc/litestream/%s.yml", filepath.Base(dbPath))
 		litestreamRunners = append(litestreamRunners, NewLitestreamRunner(configPath))
 	}
 
@@ -29,13 +30,28 @@ func NewDaemon(config Config) *Daemon {
 	return &Daemon{
 		config:      config,
 		litestream:  litestreamRunners,
-		rclone:      NewRcloneRunner(config.RcloneInterval, rclonePaths, config.Bucket),
+		rclone:      NewRcloneRunner(config.RcloneInterval, rclonePaths, config.Bucket, config.S3Endpoint),
 		metricsPort: config.MetricsPort,
 	}
 }
 
+func (d *Daemon) initializeConfigs() error {
+	for i, dbPath := range d.config.SqlitePaths {
+		configPath := d.litestream[i].ConfigPath
+		if err := GenerateLitestreamConfig(dbPath, d.config.Bucket, d.config.S3Endpoint, configPath); err != nil {
+			return fmt.Errorf("failed to generate litestream config for %s: %w", dbPath, err)
+		}
+		log.Printf("Generated litestream config: %s", configPath)
+	}
+	return nil
+}
+
 // Start begins the daemon with all goroutines managed by errgroup
 func (d *Daemon) Start(ctx context.Context) error {
+	if err := d.initializeConfigs(); err != nil {
+		return fmt.Errorf("failed to initialize configs: %w", err)
+	}
+
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	for _, replicator := range d.litestream {

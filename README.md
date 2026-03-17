@@ -140,38 +140,79 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATA_GUARD_BUCKET` | Yes | - | S3 bucket name |
-| `DATA_GUARD_S3_ENDPOINT` | No | - | Custom S3 endpoint URL |
+| `DATA_GUARD_S3_ENDPOINT` | No | - | Custom S3 endpoint URL (e.g., MinIO) |
 | `DATA_GUARD_SQLITE_PATHS` | No | - | Comma-separated SQLite paths for Litestream |
 | `DATA_GUARD_FS_PATHS` | No | - | Comma-separated filesystem paths for Rclone |
 | `DATA_GUARD_YAML_PATHS` | No | - | Comma-separated YAML paths to validate |
 | `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Rclone sync interval |
 | `DATA_GUARD_METRICS_PORT` | No | `9090` | Prometheus metrics port |
 | `DATA_GUARD_SHUTDOWN_TIMEOUT` | No | `15s` | Graceful shutdown timeout |
+| `AWS_ACCESS_KEY_ID` | Yes* | - | S3 access key (via secret) |
+| `AWS_SECRET_ACCESS_KEY` | Yes* | - | S3 secret key (via secret) |
+
+*Required for S3 authentication. Litestream and Rclone read these automatically.
 
 **Usage:**
 
 ```yaml
-containers:
-- name: dataguard-sidecar
-  image: charchess/dataangel:latest
-  command: ["./sidecar"]
-  env:
-  - name: DATA_GUARD_BUCKET
-    value: "my-backup-bucket"
-  - name: DATA_GUARD_SQLITE_PATHS
-    value: "/data/app.db"
-  - name: DATA_GUARD_FS_PATHS
-    value: "/config"
-  - name: DATA_GUARD_RCLONE_INTERVAL
-    value: "300s"
-  ports:
-  - containerPort: 9090
-    name: metrics
-  volumeMounts:
+# Create secret first
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dataangel-s3-creds
+type: Opaque
+stringData:
+  access-key: "YOUR_ACCESS_KEY"
+  secret-key: "YOUR_SECRET_KEY"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp
+spec:
+  containers:
+  - name: myapp
+    image: myapp:latest
+    volumeMounts:
+    - name: data
+      mountPath: /data
+  
+  - name: dataguard-sidecar
+    image: charchess/dataangel:latest
+    command: ["./sidecar"]
+    env:
+    - name: DATA_GUARD_BUCKET
+      value: "my-backup-bucket"
+    - name: DATA_GUARD_SQLITE_PATHS
+      value: "/data/app.db"
+    - name: DATA_GUARD_FS_PATHS
+      value: "/config"
+    - name: DATA_GUARD_RCLONE_INTERVAL
+      value: "300s"
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: dataangel-s3-creds
+          key: access-key
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: dataangel-s3-creds
+          key: secret-key
+    ports:
+    - containerPort: 9090
+      name: metrics
+    volumeMounts:
+    - name: data
+      mountPath: /data
+    - name: config
+      mountPath: /config
+  
+  volumes:
   - name: data
-    mountPath: /data
+    emptyDir: {}
   - name: config
-    mountPath: /config
+    emptyDir: {}
 ```
 
 ### CLI

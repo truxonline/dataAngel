@@ -22,10 +22,11 @@ func TestRcloneRunner(t *testing.T) {
 	t.Run("should sync on interval", func(t *testing.T) {
 		mock := &mockRcloneRunner{}
 		runner := &RcloneRunner{
-			Interval: 10 * time.Millisecond,
-			FsPaths:  []string{"/data"},
-			Bucket:   "test-bucket",
-			runner:   mock,
+			Interval:   10 * time.Millisecond,
+			FsPaths:    []string{"/data"},
+			Bucket:     "test-bucket",
+			S3Endpoint: "",
+			runner:     mock,
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -41,10 +42,11 @@ func TestRcloneRunner(t *testing.T) {
 	t.Run("should stop on context cancel", func(t *testing.T) {
 		mock := &mockRcloneRunner{}
 		runner := &RcloneRunner{
-			Interval: 1 * time.Second,
-			FsPaths:  []string{"/data"},
-			Bucket:   "test-bucket",
-			runner:   mock,
+			Interval:   1 * time.Second,
+			FsPaths:    []string{"/data"},
+			Bucket:     "test-bucket",
+			S3Endpoint: "",
+			runner:     mock,
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -59,10 +61,11 @@ func TestRcloneRunner(t *testing.T) {
 	t.Run("should continue after sync error", func(t *testing.T) {
 		mock := &mockRcloneRunner{err: errors.New("sync failed")}
 		runner := &RcloneRunner{
-			Interval: 10 * time.Millisecond,
-			FsPaths:  []string{"/data"},
-			Bucket:   "test-bucket",
-			runner:   mock,
+			Interval:   10 * time.Millisecond,
+			FsPaths:    []string{"/data"},
+			Bucket:     "test-bucket",
+			S3Endpoint: "",
+			runner:     mock,
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -78,10 +81,11 @@ func TestRcloneRunner(t *testing.T) {
 	t.Run("should skip sync when no paths configured", func(t *testing.T) {
 		mock := &mockRcloneRunner{}
 		runner := &RcloneRunner{
-			Interval: 10 * time.Millisecond,
-			FsPaths:  []string{},
-			Bucket:   "test-bucket",
-			runner:   mock,
+			Interval:   10 * time.Millisecond,
+			FsPaths:    []string{},
+			Bucket:     "test-bucket",
+			S3Endpoint: "",
+			runner:     mock,
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
