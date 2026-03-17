@@ -8,13 +8,13 @@ metadata:
 commonLabels:
   data-guard.io/enabled: "true"
 
-# Patch pour injecter les sidecars conditionnellement
+# Patch pour injecter l'init container conditionnellement
 patches:
   - target:
       kind: Deployment
       patch: |-
         - op: add
-          path: /spec/template/spec/containers/-
+          path: /spec/template/spec/initContainers/-
           value:
             name: data-guard
             image: charchess/dataangel:latest
