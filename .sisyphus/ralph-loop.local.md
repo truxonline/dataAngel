@@ -35,6 +35,16 @@ utilise bmad-help pour bien identifier l'etape suivante
 - Story 4.2: Lock TTL + Steal Mechanism ✅
 - Rétrospective Epic 4 ✅
 
+### Sprint 5 (Epic 5) - COMPLETED
+- Story 5.1: Prometheus Metrics Exporter ✅
+- Story 5.2: Alerting Backup Failure ✅
+- Story 5.3: Alerting Restore Performed ✅
+- Rétrospective Epic 5 ✅
+
+### Sprint 6 (Epic 6) - COMPLETED
+- Story 6.1: CLI Verify Backup State ✅
+- Story 6.2: CLI Force Release Lock ✅
+- Rétrospective Epic 6 ✅
+
 ### Next Steps
-- Epic 5: Observability & Alerting (ready-for-dev)
-- Epic 6: Troubleshooting & CLI Tools (ready-for-dev)
+- Epic 1: Initial Setup & Data Discovery (ready-for-dev)
