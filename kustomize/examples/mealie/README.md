@@ -1,0 +1,71 @@
+# Mealie avec data-guard
+
+Exemple d'intégration du component data-guard pour Mealie.
+
+## Spécificités Mealie
+
+- **mountPath**: `/app/data` (pas `/data`)
+- **SQLite DB**: `/app/data/mealie.db`
+- **Filesystem**: `/app/data/recipes`, `/app/data/user-files`
+- **Secret**: `mealie-infisical-secret` (géré par Infisical)
+
+## Déploiement
+
+```bash
+# Créer le namespace
+kubectl create namespace mealie
+
+# Créer le PVC (ajuster selon votre storage class)
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mealie-data
+  namespace: mealie
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+EOF
+
+# Vérifier que le secret Infisical existe
+kubectl get secret mealie-infisical-secret -n mealie
+
+# Si pas encore créé, créer un secret temporaire pour test
+kubectl create secret generic mealie-infisical-secret \
+  --from-literal=access-key=YOUR_MINIO_KEY \
+  --from-literal=secret-key=YOUR_MINIO_SECRET \
+  -n mealie
+
+# Déployer avec kustomize
+kubectl apply -k .
+
+# Vérifier les logs
+kubectl logs -n mealie -l app=mealie -c data-guard-init
+kubectl logs -n mealie -l app=mealie -c data-guard-sidecar -f
+```
+
+## Vérification
+
+```bash
+# Vérifier que la DB est restaurée
+kubectl exec -n mealie deploy/mealie -c mealie -- ls -lh /app/data/mealie.db
+
+# Vérifier les métriques
+kubectl port-forward -n mealie deploy/mealie 9090:9090
+curl http://localhost:9090/metrics | grep dataguard
+```
+
+## Backup initial
+
+Si c'est la première installation, pousser une backup initiale:
+
+```bash
+# Copier la DB locale
+kubectl cp mealie.db mealie/mealie-xxx:/app/data/mealie.db
+
+# Attendre que le sidecar backup vers MinIO (~1min)
+kubectl logs -n mealie -l app=mealie -c data-guard-sidecar -f
+```

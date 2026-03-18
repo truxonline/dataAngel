@@ -39,12 +39,6 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string) error
 	fmt.Printf("Running: litestream %s\n", strings.Join(args, " "))
 
 	if err := cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			if exitErr.ExitCode() == 0 {
-				fmt.Printf("SQLite restore skipped for %s (DB exists or no replica)\n", dbPath)
-				return nil
-			}
-		}
 		return fmt.Errorf("litestream restore failed: %w", err)
 	}
 
@@ -64,13 +58,14 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string) e
 		"copy",
 		remotePath,
 		fsPath,
-		"--s3-provider", "AWS",
 		"--s3-env-auth",
 		"--exclude", "*.db*",
 	}
 
 	if s3Endpoint != "" {
-		args = append(args, "--s3-endpoint", s3Endpoint)
+		args = append(args, "--s3-provider", "Minio", "--s3-endpoint", s3Endpoint)
+	} else {
+		args = append(args, "--s3-provider", "AWS")
 	}
 
 	cmd := exec.CommandContext(ctx, "rclone", args...)
@@ -81,12 +76,6 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string) e
 	fmt.Printf("Running: rclone %s\n", strings.Join(args, " "))
 
 	if err := cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			if exitErr.ExitCode() == 0 {
-				fmt.Printf("Filesystem restore skipped for %s (nothing to copy)\n", fsPath)
-				return nil
-			}
-		}
 		return fmt.Errorf("rclone copy failed: %w", err)
 	}
 

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-assistant
+  namespace: home-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: home-assistant
+  template:
+    metadata:
+      labels:
+        app: home-assistant
+      annotations:
+        data-guard.io/bucket: "vixens-backups"
+        data-guard.io/sqlite-paths: "/config/home-assistant_v2.db"
+        data-guard.io/fs-paths: "/config"
+        data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        data-guard.io/rclone-interval: "300s"
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      
+      containers:
+      - name: home-assistant
+        image: ghcr.io/home-assistant/home-assistant:stable
+        ports:
+        - containerPort: 8123
+          name: http
+        env:
+        - name: TZ
+          value: "Europe/Paris"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: config
+          mountPath: /config
+      
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: home-assistant-config
