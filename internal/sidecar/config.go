@@ -17,6 +17,7 @@ type Config struct {
 	YAMLPaths       []string
 	RcloneInterval  time.Duration
 	MetricsPort     int
+	MetricsEnabled  bool
 	ShutdownTimeout time.Duration
 }
 
@@ -50,6 +51,14 @@ func LoadFromEnv() (Config, error) {
 		}
 	}
 
+	// Parse metrics enabled (default true for backward compatibility)
+	metricsEnabled := true
+	if enabledStr := os.Getenv("DATA_GUARD_METRICS_ENABLED"); enabledStr != "" {
+		if enabledStr == "false" || enabledStr == "0" {
+			metricsEnabled = false
+		}
+	}
+
 	// Parse shutdown timeout (default 15s for litestream WAL flush)
 	shutdownTimeout := 15 * time.Second
 	if timeoutStr := os.Getenv("DATA_GUARD_SHUTDOWN_TIMEOUT"); timeoutStr != "" {
@@ -67,6 +76,7 @@ func LoadFromEnv() (Config, error) {
 		YAMLPaths:       yamlPaths,
 		RcloneInterval:  rcloneInterval,
 		MetricsPort:     metricsPort,
+		MetricsEnabled:  metricsEnabled,
 		ShutdownTimeout: shutdownTimeout,
 	}, nil
 }

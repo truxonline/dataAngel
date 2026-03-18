@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+metadata:
+  name: data-guard-monitoring
+  annotations:
+    config.kubernetes.io/description: |
+      Optional monitoring component for data-guard.
+      Adds Prometheus Operator PodMonitor for automatic metrics discovery.
+      
+      Requirements:
+      - Prometheus Operator installed (monitoring.coreos.com/v1 CRDs)
+      - data-guard component already applied
+      - Pods must have annotation: data-guard.io/metrics-enabled: "true"
+
+resources:
+  - podmonitor.yaml
+
+commonLabels:
+  data-guard.monitoring/enabled: "true"

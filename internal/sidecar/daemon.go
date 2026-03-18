@@ -68,17 +68,21 @@ func (d *Daemon) Start(ctx context.Context) error {
 		return d.rclone.Start(egCtx)
 	})
 
-	// Start metrics server
-	eg.Go(func() error {
-		log.Printf("Starting metrics server on port %d", d.metricsPort)
-		metrics := GetMetrics()
-		addr := fmt.Sprintf(":%d", d.metricsPort)
-		if err := metrics.StartServer(addr); err != nil {
-			return fmt.Errorf("failed to start metrics server: %w", err)
-		}
-		<-egCtx.Done()
-		return nil
-	})
+	// Start metrics server (if enabled)
+	if d.config.MetricsEnabled {
+		eg.Go(func() error {
+			log.Printf("Starting metrics server on port %d", d.metricsPort)
+			metrics := GetMetrics()
+			addr := fmt.Sprintf(":%d", d.metricsPort)
+			if err := metrics.StartServer(addr); err != nil {
+				return fmt.Errorf("failed to start metrics server: %w", err)
+			}
+			<-egCtx.Done()
+			return nil
+		})
+	} else {
+		log.Printf("Metrics server disabled (DATA_GUARD_METRICS_ENABLED=false)")
+	}
 
 	// Wait for all goroutines to complete
 	err := eg.Wait()

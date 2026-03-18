@@ -53,10 +53,25 @@ kubectl logs -n mealie -l app=mealie -c data-guard-sidecar -f
 # Vérifier que la DB est restaurée
 kubectl exec -n mealie deploy/mealie -c mealie -- ls -lh /app/data/mealie.db
 
-# Vérifier les métriques
+# Vérifier les métriques (si metrics-enabled: "true")
 kubectl port-forward -n mealie deploy/mealie 9090:9090
 curl http://localhost:9090/metrics | grep dataguard
 ```
+
+## Monitoring (optionnel)
+
+Pour activer la découverte automatique par Prometheus, ajoutez le component monitoring:
+
+```yaml
+# kustomization.yaml
+components:
+  - ../../components/data-guard
+  - ../../components/data-guard-monitoring  # PodMonitor pour Prometheus
+```
+
+**Prérequis**: Prometheus Operator installé (CRD `monitoring.coreos.com/v1`).
+
+Voir [data-guard-monitoring](../../components/data-guard-monitoring/README.md) pour plus de détails.
 
 ## Backup initial
 

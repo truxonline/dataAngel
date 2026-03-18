@@ -29,6 +29,7 @@ metadata:
     data-guard.io/fs-paths: "/config"                    # Optionnel (si filesystem)
     data-guard.io/s3-endpoint: "http://minio:9000"       # Optionnel (défaut: AWS S3)
     data-guard.io/rclone-interval: "300s"                # Optionnel (défaut: 60s)
+    data-guard.io/metrics-enabled: "true"                # Optionnel (défaut: true)
 spec:
   template:
     spec:
@@ -148,18 +149,46 @@ annotations:
 
 ## Métriques Prometheus
 
-Le sidecar expose des métriques sur le port `9090`:
+Le sidecar peut exposer des métriques sur le port `9090`. Cette fonctionnalité est **optionnelle** et contrôlée par annotation.
+
+### Activer/Désactiver les métriques
+
+**Production** (avec Prometheus):
+```yaml
+annotations:
+  data-guard.io/metrics-enabled: "true"  # Sidecar démarre le metrics server
+```
+
+**Dev/CI** (économie resources):
+```yaml
+annotations:
+  data-guard.io/metrics-enabled: "false"  # Sidecar skip le metrics server
+```
+
+**Note**: Si l'annotation est absente, le comportement par défaut est `"true"` (backward compatibility).
+
+### Découverte automatique par Prometheus
+
+Pour que Prometheus découvre automatiquement les métriques, utilisez le component **data-guard-monitoring** (opt-in):
 
 ```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: myapp-metrics
-spec:
-  selector:
-    app: myapp
-  ports:
-  - name: metrics
-    port: 9090
-    targetPort: 9090
+# kustomization.yaml
+components:
+  - ../../components/data-guard            # Base component
+  - ../../components/data-guard-monitoring # PodMonitor pour Prometheus discovery
 ```
+
+Ce component ajoute un **PodMonitor** (Prometheus Operator) qui scrape automatiquement les pods avec `data-guard.io/metrics-enabled: "true"`.
+
+**Voir**: [data-guard-monitoring component](../data-guard-monitoring/README.md)
+
+### Debug manuel des métriques
+
+Même sans Prometheus, vous pouvez accéder aux métriques manuellement:
+
+```bash
+kubectl port-forward <pod> 9090:9090
+curl http://localhost:9090/metrics
+```
+
+**Note**: Le port 9090 est toujours défini dans Kubernetes (containerPort), mais le metrics server ne démarre que si `metrics-enabled: "true"`.
