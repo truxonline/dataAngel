@@ -540,6 +540,116 @@ Running: litestream restore -if-db-not-exists -if-replica-exists -replica s3://m
 
 Pas de fichier config généré, utilise le flag `-replica` directement.
 
+## Test 7: Métriques Optionnelles (metrics-enabled annotation)
+
+Ce test valide que le serveur de métriques démarre/skip selon l'annotation.
+
+### Test 7a: Métriques activées (production)
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-metrics-enabled
+  annotations:
+    data-guard.io/bucket: "dataangel-test"
+    data-guard.io/sqlite-paths: "/data/test.db"
+    data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+    data-guard.io/metrics-enabled: "true"  # Activer métriques
+spec:
+  # ... (spec identique à test-sqlite-only)
+```
+
+**Validation**:
+```bash
+kubectl apply -f test-metrics-enabled.yaml
+kubectl wait --for=condition=Ready pod -l app=test-metrics-enabled
+
+# Vérifier logs sidecar
+kubectl logs -l app=test-metrics-enabled -c data-guard-sidecar | grep "Starting metrics server"
+# Expected: "Starting metrics server on :9090"
+
+# Tester endpoint metrics
+kubectl port-forward -l app=test-metrics-enabled 9090:9090 &
+curl http://localhost:9090/metrics | grep dataguard
+# Expected: métriques exposées (dataguard_litestream_up, dataguard_rclone_up, etc.)
+```
+
+**Success Criteria**:
+- ✅ Logs montrent "Starting metrics server on :9090"
+- ✅ Port 9090 accessible et répond avec métriques Prometheus
+- ✅ Métriques `dataguard_*` présentes
+
+### Test 7b: Métriques désactivées (dev/CI)
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-metrics-disabled
+  annotations:
+    data-guard.io/bucket: "dataangel-test"
+    data-guard.io/sqlite-paths: "/data/test.db"
+    data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+    data-guard.io/metrics-enabled: "false"  # Désactiver métriques
+spec:
+  # ... (spec identique)
+```
+
+**Validation**:
+```bash
+kubectl apply -f test-metrics-disabled.yaml
+kubectl wait --for=condition=Ready pod -l app=test-metrics-disabled
+
+# Vérifier logs sidecar
+kubectl logs -l app=test-metrics-disabled -c data-guard-sidecar | grep metrics
+# Expected: "Metrics server disabled (DATA_GUARD_METRICS_ENABLED=false)"
+
+# Tester que le port 9090 ne répond PAS
+kubectl port-forward -l app=test-metrics-disabled 9090:9090 &
+curl http://localhost:9090/metrics
+# Expected: Connection refused ou timeout
+```
+
+**Success Criteria**:
+- ✅ Logs montrent "Metrics server disabled"
+- ✅ Port 9090 ne répond pas (serveur pas démarré)
+- ✅ Sidecar continue de fonctionner normalement (Litestream + Rclone actifs)
+
+### Test 7c: PodMonitor discovery (avec Prometheus Operator)
+
+**Prérequis**: Prometheus Operator installé (CRD `monitoring.coreos.com/v1`)
+
+```yaml
+# kustomization.yaml
+components:
+  - ../../components/data-guard
+  - ../../components/data-guard-monitoring  # PodMonitor pour découverte
+```
+
+**Validation**:
+```bash
+# Déployer avec component monitoring
+kubectl apply -k kustomize/examples/mealie/
+
+# Vérifier que le PodMonitor est créé
+kubectl get podmonitor data-guard-sidecar -n mealie
+# Expected: PodMonitor exists
+
+# Vérifier labels pour discovery
+kubectl get podmonitor data-guard-sidecar -n mealie -o yaml | grep -A5 labels
+# Expected: release: prometheus, app.kubernetes.io/name: data-guard
+
+# Vérifier que Prometheus découvre le target
+# (dans l'UI Prometheus: Status > Targets)
+# Expected: Target "data-guard-sidecar" avec état UP
+```
+
+**Success Criteria**:
+- ✅ PodMonitor créé avec labels corrects (`release: prometheus`)
+- ✅ Prometheus découvre le target automatiquement
+- ✅ Métriques `dataguard_*` visibles dans Prometheus UI
+
 ## Checklist Final
 
 Une fois tous les tests passés:
@@ -550,9 +660,11 @@ Une fois tous les tests passés:
 - [ ] Test 4 (Skip behavior): ✅
 - [ ] Test 5 (Error handling): ✅
 - [ ] Test 6 (MinIO endpoint): ✅ (fix issue #1)
-- [ ] Métriques Prometheus accessibles (port 9090)
+- [ ] Test 7a (Métriques activées): ✅
+- [ ] Test 7b (Métriques désactivées): ✅
+- [ ] Test 7c (PodMonitor discovery): ✅ (si Prometheus Operator installé)
 - [ ] Sidecar continuous backup fonctionne
-- [ ] Documentation à jour (README.md, DEPLOYMENT.md)
+- [ ] Documentation à jour (README.md, devops_brief.md)
 
 ## Cleanup
 

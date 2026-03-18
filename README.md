@@ -128,6 +128,24 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 | `cli` | Verify backups, force-release locks |
 | `metrics` | Prometheus metrics exporter |
 
+### Monitoring
+
+Metrics are **optional** and controlled by annotation:
+
+```yaml
+# Enable metrics (production)
+annotations:
+  data-guard.io/metrics-enabled: "true"
+
+# Disable metrics (dev/CI)
+annotations:
+  data-guard.io/metrics-enabled: "false"
+```
+
+For Prometheus Operator auto-discovery, use the **data-guard-monitoring** component (see [kustomize/components/data-guard-monitoring](./kustomize/components/data-guard-monitoring/README.md)).
+
+**Note:** MinIO/custom S3 endpoints are fully supported. See [issue #1](https://github.com/truxonline/dataAngel/issues/1) for implementation details.
+
 ---
 
 ## Environment Variables
@@ -156,6 +174,7 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 | `DATA_GUARD_FS_PATHS` | No | - | Comma-separated filesystem paths for Rclone |
 | `DATA_GUARD_YAML_PATHS` | No | - | Comma-separated YAML paths to validate |
 | `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Rclone sync interval |
+| `DATA_GUARD_METRICS_ENABLED` | No | `true` | Enable Prometheus metrics server |
 | `DATA_GUARD_METRICS_PORT` | No | `9090` | Prometheus metrics port |
 | `DATA_GUARD_SHUTDOWN_TIMEOUT` | No | `15s` | Graceful shutdown timeout |
 | `AWS_ACCESS_KEY_ID` | Yes* | - | S3 access key (via secret) |

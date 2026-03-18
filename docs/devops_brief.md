@@ -43,6 +43,8 @@ litestream restore -if-db-not-exists -if-replica-exists <local_path>
 - Exit 0 si pas de replica en S3 (skip, premier démarrage)
 - Exit 1 si restore échoue
 
+**Note**: Pour endpoints S3 custom (MinIO, Garage), un fichier config temporaire est généré avec le champ `endpoint:` plutôt que d'utiliser le flag CLI `-endpoint` (qui n'existe pas dans `litestream restore`). Voir [issue #1](https://github.com/truxonline/dataAngel/issues/1).
+
 **Filesystem** → utiliser `rclone copy`
 ```
 rclone copy s3:<bucket>/<remote_path> <local_path> --exclude "*.db*"
@@ -76,6 +78,7 @@ Les deux modes sont **indépendants et cumulables** : une app peut avoir SQLite 
 | `DATA_GUARD_SQLITE_PATHS` | Non* | Chemins DB SQLite, virgule-séparés |
 | `DATA_GUARD_FS_PATHS` | Non* | Chemins répertoires, virgule-séparés |
 | `DATA_GUARD_RCLONE_INTERVAL` | Non | Intervalle sync FS (défaut: `60s`) |
+| `DATA_GUARD_METRICS_ENABLED` | Non | Activer serveur de métriques (défaut: `true`) |
 | `DATA_GUARD_METRICS_PORT` | Non | Port Prometheus (défaut: `9090`) |
 | `AWS_ACCESS_KEY_ID` | Oui | Clé S3 (convention SDK standard) |
 | `AWS_SECRET_ACCESS_KEY` | Oui | Secret S3 (convention SDK standard) |

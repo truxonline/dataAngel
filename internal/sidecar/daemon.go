@@ -18,8 +18,8 @@ type Daemon struct {
 
 func NewDaemon(config Config) *Daemon {
 	var litestreamRunners []*LitestreamRunner
-	for _, dbPath := range config.SqlitePaths {
-		configPath := fmt.Sprintf("/etc/litestream/%s.yml", filepath.Base(dbPath))
+	for i, dbPath := range config.SqlitePaths {
+		configPath := fmt.Sprintf("/tmp/litestream-%s-%d.yml", filepath.Base(dbPath), i)
 		litestreamRunners = append(litestreamRunners, NewLitestreamRunner(configPath))
 	}
 
