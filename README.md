@@ -44,30 +44,37 @@ kind: Pod
 metadata:
   name: myapp
   annotations:
-    dataguard/enable: "true"
-    dataguard/bucket: "my-backup-bucket"
-    dataguard/path: "data/app.db"
-    dataguard/checksum: "sha256:abc123..."
+    data-guard.io/bucket: "my-backup-bucket"
+    data-guard.io/sqlite-paths: "/data/app.db"
+    data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
 spec:
   initContainers:
-  - name: dataguard-restore
+  - name: data-guard-init
     image: charchess/dataangel:latest
     command: ["./init"]
     env:
     - name: DATA_GUARD_BUCKET
       valueFrom:
         fieldRef:
-          fieldPath: metadata.annotations['dataguard/bucket']
-    - name: DATA_GUARD_PATH
+          fieldPath: metadata.annotations['data-guard.io/bucket']
+    - name: DATA_GUARD_SQLITE_PATHS
       valueFrom:
         fieldRef:
-          fieldPath: metadata.annotations['dataguard/path']
-    - name: DATA_GUARD_LOCAL_PATH
-      value: "/data"
-    - name: DATA_GUARD_CHECKSUM
+          fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+    - name: DATA_GUARD_S3_ENDPOINT
       valueFrom:
         fieldRef:
-          fieldPath: metadata.annotations['dataguard/checksum']
+          fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: data-guard-credentials
+          key: access-key
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: data-guard-credentials
+          key: secret-key
     volumeMounts:
     - name: data
       mountPath: /data
@@ -98,9 +105,9 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 │         ▼                                                 │
 │  ┌─────────────────────────────────────────────────────┐ │
 │  │              dataAngel Logic                         │ │
-│  │  - Check local vs S3 state                          │ │
-│  │  - Conditional restore                              │ │
-│  │  - Checksum validation                              │ │
+│  │  - Litestream restore (SQLite)                      │ │
+│  │  - Rclone copy (filesystem)                         │ │
+│  │  - Skip if DB exists / No replica                   │ │
 │  └─────────────────────────────────────────────────────┘ │
 │                           │                               │
 └───────────────────────────┼───────────────────────────────┘
@@ -130,10 +137,14 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATA_GUARD_BUCKET` | Yes | S3 bucket name |
-| `DATA_GUARD_PATH` | Yes | Path in bucket (e.g., `backups/db.sqlite`) |
-| `DATA_GUARD_LOCAL_PATH` | Yes | Local path to restore to |
-| `DATA_GUARD_CHECKSUM` | Yes | Expected SHA256 checksum |
-| `DATA_GUARD_AWS_REGION` | No | AWS region (default: `us-east-1`) |
+| `DATA_GUARD_SQLITE_PATHS` | No* | Comma-separated SQLite paths for Litestream restore |
+| `DATA_GUARD_FS_PATHS` | No* | Comma-separated filesystem paths for Rclone restore |
+| `DATA_GUARD_S3_ENDPOINT` | No | Custom S3 endpoint URL (e.g., MinIO) |
+| `DATA_GUARD_FULL_LOGS` | No | Enable verbose logging (default: false) |
+| `AWS_ACCESS_KEY_ID` | Yes | S3 access key (via secret) |
+| `AWS_SECRET_ACCESS_KEY` | Yes | S3 secret key (via secret) |
+
+*At least **one** of `DATA_GUARD_SQLITE_PATHS` or `DATA_GUARD_FS_PATHS` must be set.
 
 ### Sidecar Daemon
 

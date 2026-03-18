@@ -4,65 +4,92 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
-
-	"github.com/charchess/dataAngel/internal/restore"
+	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
-// RunRestore executes the restore pipeline.
-func RunRestore(ctx context.Context, config restore.RestoreConfig) error {
-	fmt.Println("Starting restore pipeline...")
-
-	// Step 1: Get local state
-	localState, err := restore.GetLocalState(config.DestPath)
-	if err != nil {
-		return fmt.Errorf("failed to get local state: %w", err)
-	}
-
-	// Step 2: Get remote state (placeholder implementation)
-	// In a real implementation, this would connect to S3
-	remoteState := restore.DataState{
-		Exists:    true,
-		Checksum:  config.ExpectedChecksum,
-		Timestamp: time.Now().Add(-1 * time.Hour), // Dummy timestamp
-		Size:      1024,
-		Path:      config.Key,
-	}
-
-	// Step 3: Compare states
-	decision := restore.CompareStates(localState, remoteState)
-
-	// Step 4: Execute skip or restore
-	if restore.ShouldSkip(decision) {
-		restore.LogSkipReason(decision)
-		fmt.Println("Restore skipped: local data is up to date")
+func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string) error {
+	dbPath = strings.TrimSpace(dbPath)
+	if dbPath == "" {
 		return nil
 	}
 
-	restore.LogSkipReason(decision)
-	fmt.Println("Restoring data from S3...")
+	dbName := filepath.Base(dbPath)
+	replicaURL := fmt.Sprintf("s3://%s/%s", bucket, dbName)
 
-	// Create a mock downloader for now
-	downloader := &mockS3Downloader{}
-
-	// Execute restore
-	if err := restore.RestoreFromS3(ctx, downloader, config); err != nil {
-		return fmt.Errorf("restore failed: %w", err)
+	args := []string{
+		"restore",
+		"-if-db-not-exists",
+		"-if-replica-exists",
+		"-replica", replicaURL,
 	}
 
-	fmt.Println("Restore completed successfully")
+	if s3Endpoint != "" {
+		args = append(args, "-endpoint", s3Endpoint)
+	}
+
+	args = append(args, dbPath)
+
+	cmd := exec.CommandContext(ctx, "litestream", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+
+	fmt.Printf("Running: litestream %s\n", strings.Join(args, " "))
+
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if exitErr.ExitCode() == 0 {
+				fmt.Printf("SQLite restore skipped for %s (DB exists or no replica)\n", dbPath)
+				return nil
+			}
+		}
+		return fmt.Errorf("litestream restore failed: %w", err)
+	}
+
+	fmt.Printf("SQLite restored successfully: %s\n", dbPath)
 	return nil
 }
 
-// mockS3Downloader is a placeholder implementation for testing
-type mockS3Downloader struct{}
-
-func (m *mockS3Downloader) Download(ctx context.Context, bucket, key, destPath string) error {
-	// Create a dummy file for testing
-	content := []byte("restored data from S3")
-	if err := os.WriteFile(destPath, content, 0644); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
+func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string) error {
+	fsPath = strings.TrimSpace(fsPath)
+	if fsPath == "" {
+		return nil
 	}
-	fmt.Printf("Downloaded %s/%s to %s\n", bucket, key, destPath)
+
+	remotePath := fmt.Sprintf(":s3:%s/%s", bucket, filepath.Base(fsPath))
+
+	args := []string{
+		"copy",
+		remotePath,
+		fsPath,
+		"--s3-provider", "AWS",
+		"--s3-env-auth",
+		"--exclude", "*.db*",
+	}
+
+	if s3Endpoint != "" {
+		args = append(args, "--s3-endpoint", s3Endpoint)
+	}
+
+	cmd := exec.CommandContext(ctx, "rclone", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+
+	fmt.Printf("Running: rclone %s\n", strings.Join(args, " "))
+
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if exitErr.ExitCode() == 0 {
+				fmt.Printf("Filesystem restore skipped for %s (nothing to copy)\n", fsPath)
+				return nil
+			}
+		}
+		return fmt.Errorf("rclone copy failed: %w", err)
+	}
+
+	fmt.Printf("Filesystem restored successfully: %s\n", fsPath)
 	return nil
 }
