@@ -1,18 +1,68 @@
-# Ruff cache
-.ruff_cache/
+# Secrets & Environment
+.envrc
+.envrc~
+.env
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+credentials.json
+
+# Go
+/bin/
+/vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+coverage.out
+*.cover
 
 # Python
+.ruff_cache/
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
 
-# Go binaries
-/bin/
-/vendor/
+# Build artifacts
+cmd/*/init
+cmd/*/cli
+cmd/*/sidecar
+*.tar.gz
+*.zip
+
+# Docker
+.docker/
 
 # OS
 .DS_Store
+Thumbs.db
 
 # IDE
 *.swp
 *.swo
+*.swn
+.vscode/
+.idea/
+*.iml
+
+# Test artifacts
+*.log
+test-results/
+coverage/
+
+# BMAD artifacts
+_bmad-output/sprint-status.yaml~

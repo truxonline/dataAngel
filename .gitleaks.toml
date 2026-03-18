@@ -1,0 +1,41 @@
+title = "dataAngel gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist for dataAngel"
+paths = [
+  '''_bmad-output/.*''',
+  '''docs/.*\.md''',
+  '''README\.md''',
+]
+
+regexes = [
+  '''example\.com''',
+  '''localhost''',
+  '''127\.0\.0\.1''',
+  '''test-bucket''',
+  '''test-access-key''',
+]
+
+[[rules]]
+id = "direnv-envrc"
+description = "direnv .envrc files"
+regex = '''\.envrc'''
+path = '''(^|/)\.envrc(~)?$'''
+
+[[rules]]
+id = "github-pat"
+description = "GitHub Personal Access Token"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+
+[[rules]]
+id = "dockerhub-pat"
+description = "Docker Hub Personal Access Token"  
+regex = '''dckr_pat_[0-9a-zA-Z_-]{32,}'''
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''AKIA[0-9A-Z]{16}'''
