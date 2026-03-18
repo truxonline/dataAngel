@@ -437,6 +437,109 @@ kubectl logs -l app=test-error -c data-guard-init
 - ✅ Logs montrent erreur S3 authentification
 - ✅ Pod reste en Init:Error state
 
+## Test 6: MinIO Endpoint Validation (Issue #1)
+
+Ce test valide le fix pour [issue #1](https://github.com/truxonline/dataAngel/issues/1): litestream restore avec endpoint custom.
+
+### Contexte
+
+Avant le fix, l'init container utilisait le flag `-endpoint` qui n'existe pas dans `litestream restore`, causant:
+```
+flag provided but not defined: -endpoint
+```
+
+Après le fix, un fichier de config temporaire est généré avec le field `endpoint:` dans le YAML.
+
+### Validation automatique (tests unitaires)
+
+```bash
+# Dans le repository local
+cd cmd/init
+go test -v -run TestGenerateLitestreamConfig
+
+# Expected output:
+# === RUN   TestGenerateLitestreamConfig
+# === RUN   TestGenerateLitestreamConfig/with_custom_endpoint
+# === RUN   TestGenerateLitestreamConfig/without_custom_endpoint
+# --- PASS: TestGenerateLitestreamConfig (0.00s)
+```
+
+### Validation manuelle (cluster K8s)
+
+Déployer avec endpoint MinIO et vérifier les logs:
+
+```bash
+# Déployer test-sqlite-only (voir Test 1)
+kubectl apply -f test-sqlite-only.yaml
+
+# Attendre pod ready
+kubectl wait --for=condition=Ready pod -l app=test-sqlite-only
+
+# Vérifier logs init container
+kubectl logs -l app=test-sqlite-only -c data-guard-init
+```
+
+**Expected logs**:
+```
+Running: litestream restore -config /tmp/litestream-restore-<pid>.yml -if-db-not-exists -if-replica-exists /data/test.db
+SQLite restored successfully: /data/test.db
+```
+
+**NOT expected** (old behavior):
+```
+Running: litestream restore ... -endpoint http://minio:9000 ...
+flag provided but not defined: -endpoint
+```
+
+### Vérifier le fichier config généré
+
+Si besoin de debug, inspecter le config temporaire:
+
+```bash
+# Modifier cmd/init/restore.go temporairement pour ne pas supprimer le config
+# Ligne: defer os.Remove(configPath)  # Commenter cette ligne
+
+# Rebuild image et redéployer
+# Puis exec dans le pod avant qu'il termine
+
+kubectl exec -it <pod> -c data-guard-init -- cat /tmp/litestream-restore-*.yml
+```
+
+**Expected output**:
+```yaml
+dbs:
+  - path: /data/test.db
+    replicas:
+      - url: s3://dataangel-test/test.db
+        endpoint: http://minio.minio.svc.cluster.local:9000
+```
+
+### Success Criteria
+
+- ✅ Init container démarre sans erreur "flag provided but not defined"
+- ✅ Logs montrent `-config /tmp/litestream-restore-*.yml` (pas `-endpoint`)
+- ✅ DB restaurée correctement depuis MinIO
+- ✅ Tests unitaires passent (`TestGenerateLitestreamConfig`)
+
+### Régression à surveiller
+
+Vérifier que le mode **sans** endpoint custom fonctionne toujours:
+
+```yaml
+# Sans data-guard.io/s3-endpoint annotation
+annotations:
+  data-guard.io/bucket: "my-bucket"
+  data-guard.io/sqlite-paths: "/data/test.db"
+  # Pas de s3-endpoint → utilise AWS S3 standard
+```
+
+**Expected logs**:
+```
+Running: litestream restore -if-db-not-exists -if-replica-exists -replica s3://my-bucket/test.db /data/test.db
+```
+
+Pas de fichier config généré, utilise le flag `-replica` directement.
+
 ## Checklist Final
 
 Une fois tous les tests passés:
@@ -446,6 +549,7 @@ Une fois tous les tests passés:
 - [ ] Test 3 (Combined): ✅
 - [ ] Test 4 (Skip behavior): ✅
 - [ ] Test 5 (Error handling): ✅
+- [ ] Test 6 (MinIO endpoint): ✅ (fix issue #1)
 - [ ] Métriques Prometheus accessibles (port 9090)
 - [ ] Sidecar continuous backup fonctionne
 - [ ] Documentation à jour (README.md, DEPLOYMENT.md)
