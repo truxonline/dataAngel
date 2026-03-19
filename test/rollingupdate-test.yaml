@@ -61,7 +61,7 @@ spec:
       
       initContainers:
       - name: dataangel
-        image: charchess/dataangel:0.3.0
+        image: charchess/dataangel:0.3.1
         restartPolicy: Always
         command: ["./dataangel"]
         env:

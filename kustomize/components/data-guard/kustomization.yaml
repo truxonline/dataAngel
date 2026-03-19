@@ -16,7 +16,7 @@ patches:
         value:
           name: dataangel
           restartPolicy: Always
-          image: charchess/dataangel:0.3.0
+          image: charchess/dataangel:0.3.1
           imagePullPolicy: IfNotPresent
           env:
             - name: DATA_GUARD_BUCKET
@@ -93,4 +93,4 @@ patches:
 
 images:
   - name: charchess/dataangel
-    newTag: 0.3.0
+    newTag: 0.3.1
