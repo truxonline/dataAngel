@@ -72,7 +72,6 @@ func (r *RcloneRunner) syncOnce(ctx context.Context) error {
 		"sync",
 		r.FsPaths[0],
 		fmt.Sprintf(":s3:%s/filesystem", r.Bucket),
-		"--s3-provider", "AWS",
 		"--s3-env-auth",
 		"--exclude", "*.db*",
 		"--exclude", ".*.db-litestream/**",
@@ -83,7 +82,9 @@ func (r *RcloneRunner) syncOnce(ctx context.Context) error {
 	}
 
 	if r.S3Endpoint != "" {
-		args = append(args, "--s3-endpoint", r.S3Endpoint)
+		args = append(args, "--s3-provider", "Minio", "--s3-endpoint", r.S3Endpoint)
+	} else {
+		args = append(args, "--s3-provider", "AWS")
 	}
 
 	syncCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
