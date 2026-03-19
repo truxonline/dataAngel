@@ -19,14 +19,13 @@ const (
 	PhaseBackup  Phase = "backup"
 )
 
-// PhaseManager manages the current phase and exposes readiness probe + metrics
 type PhaseManager struct {
 	mu             sync.RWMutex
 	currentPhase   Phase
+	lockAcquired   bool
 	metricsPort    int
 	metricsEnabled bool
 
-	// Prometheus metrics
 	phaseGauge      *prometheus.GaugeVec
 	restoreDuration prometheus.Gauge
 }
@@ -95,29 +94,40 @@ func (pm *PhaseManager) GetPhase() Phase {
 	return pm.currentPhase
 }
 
-// RecordRestoreDuration records the duration of the restore phase
 func (pm *PhaseManager) RecordRestoreDuration(duration time.Duration) {
 	if pm.metricsEnabled {
 		pm.restoreDuration.Set(duration.Seconds())
 	}
 }
 
+func (pm *PhaseManager) SetLockAcquired(acquired bool) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	pm.lockAcquired = acquired
+}
+
 // StartReadinessServer starts the HTTP server for readiness probe and metrics
 func (pm *PhaseManager) StartReadinessServer() error {
 	mux := http.NewServeMux()
 
-	// Readiness probe endpoint
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		phase := pm.GetPhase()
+		pm.mu.RLock()
+		phase := pm.currentPhase
+		lockAcquired := pm.lockAcquired
+		pm.mu.RUnlock()
 
 		if phase == PhaseRestore {
-			// Not ready during restore phase
 			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Write([]byte("restore in progress\n"))
 			return
 		}
 
-		// Ready during backup phase
+		if phase == PhaseBackup && !lockAcquired {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("waiting for lock acquisition\n"))
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok\n"))
 	})

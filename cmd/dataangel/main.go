@@ -58,7 +58,7 @@ func main() {
 	log.Println("[dataangel] phase=backup starting")
 	phaseManager.SetPhase(PhaseBackup)
 
-	if err := RunBackup(ctx, config); err != nil {
+	if err := RunBackup(ctx, config, phaseManager); err != nil {
 		log.Printf("[dataangel] phase=backup error: %v", err)
 	}
 

@@ -21,6 +21,10 @@ type Config struct {
 	FsPaths     []string
 	YAMLPaths   []string
 
+	// Lock configuration
+	DeploymentName string
+	LockTTL        time.Duration
+
 	// Backup daemon configuration
 	RcloneInterval  time.Duration
 	ShutdownTimeout time.Duration
@@ -115,12 +119,30 @@ func LoadConfig() (Config, error) {
 		}
 	}
 
+	// Parse deployment name (required for distributed lock)
+	deploymentName := os.Getenv("DATA_GUARD_DEPLOYMENT_NAME")
+	if deploymentName == "" {
+		return Config{}, fmt.Errorf("DATA_GUARD_DEPLOYMENT_NAME is required")
+	}
+
+	// Parse lock TTL (default: 60s)
+	lockTTLStr := os.Getenv("DATA_GUARD_LOCK_TTL")
+	if lockTTLStr == "" {
+		lockTTLStr = "60s"
+	}
+	lockTTL, err := time.ParseDuration(lockTTLStr)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid DATA_GUARD_LOCK_TTL: %w", err)
+	}
+
 	return Config{
 		Bucket:          bucket,
 		S3Endpoint:      os.Getenv("DATA_GUARD_S3_ENDPOINT"),
 		SqlitePaths:     sqlitePaths,
 		FsPaths:         fsPaths,
 		YAMLPaths:       yamlPaths,
+		DeploymentName:  deploymentName,
+		LockTTL:         lockTTL,
 		RcloneInterval:  rcloneInterval,
 		ShutdownTimeout: shutdownTimeout,
 		MetricsEnabled:  metricsEnabled,

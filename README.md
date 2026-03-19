@@ -182,6 +182,7 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 - **1 container** instead of 2 (init + sidecar merged)
 - **Phase-aware**: RESTORE blocks startup, BACKUP runs continuously
 - **Auto-restart**: If backup daemon crashes, Kubernetes restarts it
+- **Distributed locking**: Prevents split brain during RollingUpdates (v0.3.0+)
 - **Observability**: Readiness probe (/ready), phase metrics, structured logs
 
 ### Components
@@ -194,10 +195,16 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 **Phases:**
 - **Phase 1 (RESTORE)**: Blocks pod startup, restores SQLite + filesystem from S3
 - **Phase 2 (BACKUP)**: Runs as sidecar, continuous replication (Litestream) + periodic sync (Rclone)
+  - **Lock Acquisition** (v0.3.0+): Acquires S3 distributed lock before becoming ready
+  - **Heartbeat**: Renews lock every 30s to maintain ownership
+  - **Graceful Shutdown**: Releases lock on SIGTERM
 
 **Metrics Server** (port 9090):
 - `/metrics` - Prometheus metrics (phase state, restore duration, sync stats)
-- `/ready` - Readiness probe (503 during restore, 200 during backup)
+- `/ready` - Readiness probe:
+  - `503` during restore phase
+  - `503` during backup phase (waiting for lock acquisition)
+  - `200` after lock acquired (ready for traffic)
 
 ### Monitoring
 
@@ -219,6 +226,58 @@ For Prometheus Operator auto-discovery, use the **data-guard-monitoring** compon
 
 ---
 
+## RollingUpdate Safety (v0.3.0+)
+
+**Problem:** SQLite apps with `strategy: RollingUpdate` can lose data during deployments due to split brain (both pods writing concurrently).
+
+**Solution:** dataAngel uses an S3-based distributed lock to coordinate handoffs between pods:
+
+```
+RollingUpdate starts Pod 2
+  ↓
+Pod 2 Phase 1: Restore from S3 (gen N)
+  ↓
+Pod 2 Phase 2: Try to acquire S3 lock
+  ↓
+  Lock held by Pod 1? → Retry, NOT READY
+  ↓
+Kubernetes keeps Pod 1 running (Pod 2 not ready)
+  ↓
+Pod 1 receives SIGTERM → graceful shutdown
+  ↓
+Pod 1 releases lock
+  ↓
+Pod 2 acquires lock → READY
+  ↓
+Kubernetes terminates Pod 1
+```
+
+**Configuration:**
+
+```yaml
+env:
+- name: DATA_GUARD_DEPLOYMENT_NAME
+  value: "mealie"  # Must be unique per deployment
+- name: DATA_GUARD_LOCK_TTL
+  value: "60s"  # Lock expiration (prevents stuck locks)
+```
+
+**Lock Behavior:**
+- **Acquisition timeout:** 5 minutes (prevents indefinite waiting)
+- **Renewal interval:** 30 seconds (heartbeat keeps lock alive)
+- **TTL-based expiration:** If pod crashes without releasing, lock expires after TTL
+- **Force release:** Use CLI to manually release stuck locks
+
+**Compatibility:**
+- ✅ Works with any S3-compatible storage (MinIO, AWS S3, etc.)
+- ✅ Zero cloud dependencies
+- ✅ No Kubernetes API access required
+- ✅ Self-hosted friendly
+
+**See also:** [Issue #8](https://github.com/truxonline/dataAngel/issues/8) for detailed analysis and design discussion.
+
+---
+
 ## Environment Variables
 
 ### dataangel Container
@@ -232,6 +291,8 @@ The unified `dataangel` container uses the same environment variables for both p
 | `DATA_GUARD_FS_PATHS` | No* | - | Comma-separated filesystem paths (restore + backup) |
 | `DATA_GUARD_YAML_PATHS` | No | - | Comma-separated YAML paths to validate |
 | `DATA_GUARD_S3_ENDPOINT` | No | - | Custom S3 endpoint URL (e.g., MinIO) |
+| `DATA_GUARD_DEPLOYMENT_NAME` | Yes | - | Deployment name (for distributed lock) |
+| `DATA_GUARD_LOCK_TTL` | No | `60s` | Lock expiration timeout (v0.3.0+) |
 | `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Rclone sync interval (Phase 2) |
 | `DATA_GUARD_METRICS_ENABLED` | No | `true` | Enable Prometheus metrics server |
 | `DATA_GUARD_METRICS_PORT` | No | `9090` | Prometheus metrics port |
