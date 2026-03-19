@@ -65,6 +65,10 @@ patches:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.uid
+            - name: AWS_REGION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['data-guard.io/aws-region']
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:

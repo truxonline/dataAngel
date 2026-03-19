@@ -41,7 +41,14 @@ type S3LockReal struct {
 }
 
 func NewS3LockReal(ctx context.Context, cfg S3LockConfig) (*S3LockReal, error) {
-	awsCfg, err := config.LoadDefaultConfig(ctx)
+	// Default region to us-east-1 for custom endpoints (MinIO, etc.)
+	// AWS SDK v2 requires a region even for non-AWS S3-compatible storage
+	var configOpts []func(*config.LoadOptions) error
+	if cfg.Endpoint != "" && os.Getenv("AWS_REGION") == "" {
+		configOpts = append(configOpts, config.WithRegion("us-east-1"))
+	}
+
+	awsCfg, err := config.LoadDefaultConfig(ctx, configOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}

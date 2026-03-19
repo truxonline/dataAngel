@@ -37,6 +37,7 @@ metadata:
     data-guard.io/sqlite-paths: "/data/app.db"            # Optionnel (si SQLite)
     data-guard.io/fs-paths: "/config"                     # Optionnel (si filesystem)
     data-guard.io/s3-endpoint: "http://minio:9000"        # Optionnel (défaut: AWS S3)
+    data-guard.io/aws-region: "us-east-1"                 # Optionnel (auto: us-east-1 si s3-endpoint set)
     data-guard.io/lock-ttl: "60s"                         # Optionnel (défaut: 60s)
     data-guard.io/rclone-interval: "300s"                 # Optionnel (défaut: 60s)
     data-guard.io/metrics-enabled: "true"                 # Optionnel (défaut: true)
@@ -59,6 +60,10 @@ spec:
 - `deployment-name` est **requis** (v0.3.0+) pour le distributed lock RollingUpdate
   - Doit être **unique** par deployment dans le bucket S3
   - Utilisé comme clé de lock: `.locks/{deployment-name}`
+- `aws-region` est **auto-defaultée** à `us-east-1` si `s3-endpoint` est set (MinIO, Wasabi, etc.)
+  - Utilisateurs **MinIO** : ne pas set cette annotation (default OK)
+  - Utilisateurs **AWS S3 réel** : set à votre région (e.g., `eu-west-1`, `us-west-2`)
+  - Pourquoi ? AWS SDK v2 nécessite une région même pour S3-compatible non-AWS
 
 ## SecurityContext critique (Permissions fichiers)
 

@@ -2,9 +2,37 @@ package lock
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 )
+
+func TestS3LockReal_RegionDefault(t *testing.T) {
+	originalRegion := os.Getenv("AWS_REGION")
+	defer func() {
+		if originalRegion != "" {
+			os.Setenv("AWS_REGION", originalRegion)
+		} else {
+			os.Unsetenv("AWS_REGION")
+		}
+	}()
+
+	os.Unsetenv("AWS_REGION")
+
+	ctx := context.Background()
+	cfg := S3LockConfig{
+		Bucket:   "test-bucket",
+		Key:      ".locks/test",
+		Endpoint: "http://minio.local:9000",
+		TTL:      60 * time.Second,
+	}
+
+	_, err := NewS3LockReal(ctx, cfg)
+
+	if err != nil && containsString(err.Error(), "region must be set") {
+		t.Errorf("AWS_REGION should be defaulted for custom endpoint, got: %v", err)
+	}
+}
 
 func TestS3LockReal_AcquireRelease(t *testing.T) {
 	t.Skip("Integration test: requires MinIO or S3 endpoint")
