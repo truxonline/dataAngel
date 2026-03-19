@@ -1,6 +1,6 @@
 module github.com/charchess/dataAngel/cmd/dataangel
 
-go 1.22
+go 1.24
 
 toolchain go1.25.8
 

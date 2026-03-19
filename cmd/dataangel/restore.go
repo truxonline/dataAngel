@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -115,7 +116,10 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string) error
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, "litestream", args...)
+	restoreCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(restoreCtx, "litestream", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()
@@ -157,7 +161,10 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string) e
 		args = append(args, "--s3-provider", "AWS")
 	}
 
-	cmd := exec.CommandContext(ctx, "rclone", args...)
+	restoreCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(restoreCtx, "rclone", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()

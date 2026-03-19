@@ -3,6 +3,8 @@ package sidecar
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -17,12 +19,20 @@ type realCommandRunner struct{}
 func (r *realCommandRunner) Run(ctx context.Context, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
 	cmd.Cancel = func() error {
 		return cmd.Process.Signal(syscall.SIGTERM)
 	}
 	cmd.WaitDelay = 15 * time.Second
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		log.Printf("[%s] Command failed: %v", name, err)
+		return err
+	}
+
+	return nil
 }
 
 type LitestreamRunner struct {

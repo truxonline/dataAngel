@@ -84,5 +84,8 @@ func (r *RcloneRunner) syncOnce(ctx context.Context) error {
 		args = append(args, "--s3-endpoint", r.S3Endpoint)
 	}
 
-	return r.runner.Run(ctx, "rclone", args...)
+	syncCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+
+	return r.runner.Run(syncCtx, "rclone", args...)
 }
