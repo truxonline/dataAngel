@@ -8,6 +8,22 @@ Exemple d'intégration du component data-guard pour Mealie.
 - **SQLite DB**: `/app/data/mealie.db`
 - **Filesystem**: `/app/data/recipes`, `/app/data/user-files`
 - **Secret**: `mealie-infisical-secret` (géré par Infisical)
+- **UID/GID**: `911:911` (user linuxserver.io standard)
+
+### SecurityContext
+
+⚠️ **CRITIQUE** : L'image Mealie tourne en `uid=911 gid=911`. Les containers data-guard (init + sidecar) doivent utiliser le **même UID** pour accéder aux fichiers partagés.
+
+Le deployment inclut :
+```yaml
+securityContext:
+  runAsUser: 911
+  runAsGroup: 911
+  fsGroup: 911
+  runAsNonRoot: true
+```
+
+**Pourquoi c'est critique** : Sans ça, `permission denied` sur la DB/config.
 
 ## Déploiement
 

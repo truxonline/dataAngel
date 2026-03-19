@@ -46,6 +46,68 @@ spec:
 
 **Note**: Au moins **un** de `sqlite-paths` ou `fs-paths` doit être défini.
 
+## SecurityContext critique (Permissions fichiers)
+
+⚠️ **IMPORTANT** : Les containers data-guard (init + sidecar) **doivent tourner avec le même UID/GID que votre application**.
+
+### Pourquoi ?
+
+Les fichiers (SQLite DB, configs) sont partagés via un volume entre :
+- Init container (restore)
+- Sidecar (backup continu)
+- Votre app (lecture/écriture)
+
+**Si les UIDs diffèrent** → permission denied, backup/restore échoue.
+
+### Solution
+
+Configurez `securityContext` au niveau **Pod** (s'applique à tous les containers) :
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsUser: 1000    # UID de votre app
+        runAsGroup: 1000   # GID de votre app
+        fsGroup: 1000      # Propriétaire des volumes
+      
+      containers:
+      - name: myapp
+        # Votre app tourne déjà en uid=1000
+```
+
+**Trouver l'UID de votre app** :
+```bash
+# Exec dans votre pod existant (sans data-guard)
+kubectl exec -it <pod> -- id
+# Exemple output: uid=1000(user) gid=1000(user) groups=1000(user)
+```
+
+### Pattern recommandé
+
+```yaml
+spec:
+  template:
+    spec:
+      # Pod-level securityContext (s'applique à init, sidecar, et app)
+      securityContext:
+        runAsUser: <UID_DE_VOTRE_APP>
+        runAsGroup: <GID_DE_VOTRE_APP>
+        fsGroup: <GID_DE_VOTRE_APP>
+        runAsNonRoot: true
+```
+
+**Valeurs courantes** :
+- Mealie : `uid=911 gid=911`
+- Home Assistant : `uid=0 gid=0` (privilégié, nécessite `runAsNonRoot: false`)
+- Vaultwarden : `uid=1000 gid=1000`
+- Nextcloud : `uid=33 gid=33` (www-data)
+
+⚠️ **Ne PAS hardcoder ces valeurs** — chaque app est différente. Toujours vérifier avec `kubectl exec ... -- id`.
+
 ## Secret AWS requis
 
 ⚠️ **Le component utilise par défaut un secret nommé `data-guard-credentials`.**

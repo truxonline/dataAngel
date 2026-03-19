@@ -105,8 +105,10 @@ Le `mountPath` ne doit **pas** être hardcodé — il doit être paramétrable p
 
 - S3 backend : **MinIO** (endpoint interne `http://minio.minio.svc.cluster.local:9000`)
 - Format Litestream : le sidecar doit écrire dans le même format WAL que Litestream standalone (pour migration sans perte de données existantes)
-- `securityContext`: `runAsUser: 1000` (les fichiers appartiennent à uid=1000 dans nos apps)
+- `securityContext`: **Dépend de l'app** (uid=911 pour Mealie, uid=0 pour Home Assistant, etc.) — les containers data-guard doivent matcher l'UID de l'app cible
 - Métriques Prometheus sur port `9090` avec label `app=dataangel`
+
+**Note securityContext** : Contrairement à une approche spécifique (hardcoded uid=1000), dataAngel reste **générique et agnostique**. Le `runAsUser` se configure au niveau du deployment de chaque app, pas dans le component.
 
 ---
 

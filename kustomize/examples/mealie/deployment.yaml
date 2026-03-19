@@ -20,6 +20,14 @@ spec:
         data-guard.io/rclone-interval: "300s"
         data-guard.io/metrics-enabled: "true"
     spec:
+      # CRITIQUE: runAsUser doit matcher l'UID de l'app Mealie (911)
+      # pour que init/sidecar puissent accéder aux fichiers
+      securityContext:
+        runAsUser: 911
+        runAsGroup: 911
+        fsGroup: 911
+        runAsNonRoot: true
+      
       containers:
       - name: mealie
         image: ghcr.io/mealie-recipes/mealie:latest

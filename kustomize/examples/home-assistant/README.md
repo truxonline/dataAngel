@@ -9,6 +9,22 @@ Exemple d'intégration du component data-guard pour Home Assistant.
 - **Filesystem**: `/config` (tout le répertoire config)
 - **Secret**: `home-assistant-infisical-secret` (géré par Infisical)
 - **Network**: `hostNetwork: true` (nécessaire pour découverte locale)
+- **UID/GID**: `0:0` (root, nécessaire pour hardware access)
+
+### SecurityContext
+
+⚠️ **CRITIQUE** : Home Assistant nécessite `root` pour accéder au hardware (USB, GPIO, etc.). Les containers data-guard (init + sidecar) doivent aussi tourner en `root` pour accéder aux fichiers partagés.
+
+Le deployment inclut :
+```yaml
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  fsGroup: 0
+  runAsNonRoot: false
+```
+
+**Pourquoi c'est critique** : Sans ça, `permission denied` sur `/config`.
 
 ## Déploiement
 

@@ -27,6 +27,48 @@ If you're running stateful applications on Kubernetes, you need to protect your 
 
 ---
 
+## Critical Setup Requirements
+
+### SecurityContext Configuration
+
+⚠️ **MANDATORY**: The data-guard containers (init + sidecar) **must run with the same UID/GID as your application**.
+
+Files (SQLite DB, configs) are shared between:
+- Init container (restore)
+- Sidecar (continuous backup)
+- Your app (read/write)
+
+**If UIDs differ** → permission denied errors.
+
+**Solution**: Configure Pod-level `securityContext`:
+
+```yaml
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsUser: <YOUR_APP_UID>    # Match your app's UID
+        runAsGroup: <YOUR_APP_GID>   # Match your app's GID
+        fsGroup: <YOUR_APP_GID>      # Volume ownership
+        runAsNonRoot: true           # Security best practice
+```
+
+Find your app's UID:
+```bash
+kubectl exec -it <existing-pod> -- id
+# Output example: uid=1000(user) gid=1000(user)
+```
+
+**Common UIDs**:
+- Mealie: `911:911`
+- Home Assistant: `0:0` (privileged, requires `runAsNonRoot: false`)
+- Vaultwarden: `1000:1000`
+- Nextcloud: `33:33` (www-data)
+
+⚠️ **Do NOT hardcode** — always check your specific app's UID.
+
+---
+
 ## Quick Start
 
 ### 1. Deploy the image

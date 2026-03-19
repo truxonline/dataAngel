@@ -23,6 +23,14 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       
+      # CRITIQUE: Home Assistant nécessite root pour hardware access
+      # Init/sidecar tournent aussi en root pour accéder aux fichiers
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+        runAsNonRoot: false
+      
       containers:
       - name: home-assistant
         image: ghcr.io/home-assistant/home-assistant:stable
