@@ -74,6 +74,8 @@ func (r *RcloneRunner) syncOnce(ctx context.Context) error {
 		fmt.Sprintf(":s3:%s/filesystem", r.Bucket),
 		"--s3-provider", "AWS",
 		"--s3-env-auth",
+		"--exclude", "*.db*",
+		"--exclude", ".*.db-litestream/**",
 		"--checksum",
 		"--min-age", "30s",
 		"--timeout", "120s",
