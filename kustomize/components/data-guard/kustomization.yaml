@@ -4,117 +4,77 @@ kind: Component
 metadata:
   name: data-guard
 
-# Variables d'environnement pour les sidecars
 commonLabels:
   data-guard.io/enabled: "true"
 
-# Patch pour injecter l'init container ET le sidecar
 patches:
-  # Init container (restore)
   - target:
       kind: Deployment
-      patch: |-
-        - op: add
-          path: /spec/template/spec/initContainers/-
-          value:
-            name: data-guard-init
-            image: charchess/dataangel:latest
-            imagePullPolicy: IfNotPresent
-            env:
-              - name: DATA_GUARD_BUCKET
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/bucket']
-              - name: DATA_GUARD_SQLITE_PATHS
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
-              - name: DATA_GUARD_FS_PATHS
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/fs-paths']
-              - name: DATA_GUARD_S3_ENDPOINT
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
-              - name: DATA_GUARD_FULL_LOGS
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/full-logs']
-              - name: AWS_ACCESS_KEY_ID
-                valueFrom:
-                  secretKeyRef:
-                    name: data-guard-credentials
-                    key: access-key
-              - name: AWS_SECRET_ACCESS_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: data-guard-credentials
-                    key: secret-key
-            command: ["./init"]
-            volumeMounts:
-              - name: data
-                mountPath: /data
-                readOnly: false
+    patch: |-
+      - op: add
+        path: /spec/template/spec/initContainers/-
+        value:
+          name: dataangel
+          restartPolicy: Always
+          image: charchess/dataangel:0.2.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DATA_GUARD_BUCKET
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['data-guard.io/bucket']
+            - name: DATA_GUARD_SQLITE_PATHS
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+            - name: DATA_GUARD_FS_PATHS
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['data-guard.io/fs-paths']
+            - name: DATA_GUARD_S3_ENDPOINT
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+            - name: DATA_GUARD_RCLONE_INTERVAL
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['data-guard.io/rclone-interval']
+            - name: DATA_GUARD_METRICS_PORT
+              value: "9090"
+            - name: DATA_GUARD_METRICS_ENABLED
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['data-guard.io/metrics-enabled']
+            - name: DATA_GUARD_FULL_LOGS
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['data-guard.io/full-logs']
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: data-guard-credentials
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: data-guard-credentials
+                  key: secret-key
+          command: ["./dataangel"]
+          ports:
+            - containerPort: 9090
+              name: metrics
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9090
+            initialDelaySeconds: 0
+            periodSeconds: 2
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: false
 
-  # Sidecar (continuous backup)
-  - target:
-      kind: Deployment
-      patch: |-
-        - op: add
-          path: /spec/template/spec/containers/-
-          value:
-            name: data-guard-sidecar
-            image: charchess/dataangel:latest
-            imagePullPolicy: IfNotPresent
-            env:
-              - name: DATA_GUARD_BUCKET
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/bucket']
-              - name: DATA_GUARD_SQLITE_PATHS
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
-              - name: DATA_GUARD_FS_PATHS
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/fs-paths']
-              - name: DATA_GUARD_S3_ENDPOINT
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
-              - name: DATA_GUARD_RCLONE_INTERVAL
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/rclone-interval']
-              - name: DATA_GUARD_METRICS_PORT
-                value: "9090"
-              - name: DATA_GUARD_METRICS_ENABLED
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['data-guard.io/metrics-enabled']
-              - name: AWS_ACCESS_KEY_ID
-                valueFrom:
-                  secretKeyRef:
-                    name: data-guard-credentials
-                    key: access-key
-              - name: AWS_SECRET_ACCESS_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: data-guard-credentials
-                    key: secret-key
-            command: ["./sidecar"]
-            ports:
-              - containerPort: 9090
-                name: metrics
-                protocol: TCP
-            volumeMounts:
-              - name: data
-                mountPath: /data
-                readOnly: false
-
-# Images à remplacer
 images:
   - name: charchess/dataangel
-    newTag: latest
+    newTag: 0.2.0

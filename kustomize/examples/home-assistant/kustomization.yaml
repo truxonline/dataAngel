@@ -10,32 +10,19 @@ resources:
   - deployment.yaml
 
 patches:
-  # Override mountPath: Home Assistant uses /config
   - target:
       kind: Deployment
       name: home-assistant
     patch: |-
+      - op: replace
+        path: /spec/template/spec/initContainers/0/volumeMounts/0/name
+        value: config
       - op: replace
         path: /spec/template/spec/initContainers/0/volumeMounts/0/mountPath
         value: /config
       - op: replace
-        path: /spec/template/spec/containers/1/volumeMounts/0/mountPath
-        value: /config
-
-  # Override secret name: Use Home Assistant-specific Infisical secret
-  - target:
-      kind: Deployment
-      name: home-assistant
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/initContainers/0/env/3/valueFrom/secretKeyRef/name
+        path: /spec/template/spec/initContainers/0/env/8/valueFrom/secretKeyRef/name
         value: home-assistant-infisical-secret
       - op: replace
-        path: /spec/template/spec/initContainers/0/env/4/valueFrom/secretKeyRef/name
-        value: home-assistant-infisical-secret
-      - op: replace
-        path: /spec/template/spec/containers/1/env/3/valueFrom/secretKeyRef/name
-        value: home-assistant-infisical-secret
-      - op: replace
-        path: /spec/template/spec/containers/1/env/4/valueFrom/secretKeyRef/name
+        path: /spec/template/spec/initContainers/0/env/9/valueFrom/secretKeyRef/name
         value: home-assistant-infisical-secret

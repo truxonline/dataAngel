@@ -1,24 +1,21 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
 WORKDIR /build
 
-# Build init-container
-COPY cmd/init/go.mod /build/cmd/init/
-COPY internal/restore/go.mod /build/internal/restore/
-COPY pkg/s3/go.mod /build/pkg/s3/
+# Build unified dataangel binary (requires CGO for sqlite3)
+COPY cmd/dataangel/go.mod cmd/dataangel/go.sum /build/cmd/dataangel/
+COPY internal/sidecar/go.mod internal/sidecar/go.sum /build/internal/sidecar/
 
-WORKDIR /build/internal/restore
+WORKDIR /build/cmd/dataangel
 RUN go mod download
 
-WORKDIR /build/cmd/init
-COPY cmd/init/. /build/cmd/init/
-COPY internal/restore/. /build/internal/restore/
-COPY pkg/s3/. /build/pkg/s3/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o init .
+COPY cmd/dataangel/. /build/cmd/dataangel/
+COPY internal/sidecar/. /build/internal/sidecar/
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o dataangel .
 
-# Build CLI
+# Build CLI (still useful for debug/ops)
 COPY cmd/cli/go.mod /build/cmd/cli/
 COPY cmd/data-guard-cli/go.mod /build/cmd/data-guard-cli/
 COPY pkg/s3/go.mod /build/pkg/s3/
@@ -32,17 +29,6 @@ COPY cmd/data-guard-cli/. /build/cmd/data-guard-cli/
 COPY pkg/s3/. /build/pkg/s3/
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o cli .
 
-# Build sidecar
-COPY cmd/sidecar/go.mod cmd/sidecar/go.sum* /build/cmd/sidecar/
-COPY internal/sidecar/go.mod internal/sidecar/go.sum /build/internal/sidecar/
-
-WORKDIR /build/cmd/sidecar
-RUN go mod download
-
-COPY cmd/sidecar/. /build/cmd/sidecar/
-COPY internal/sidecar/. /build/internal/sidecar/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o sidecar .
-
 FROM alpine:latest
 
 RUN apk update && apk --no-cache add ca-certificates rclone curl && \
@@ -53,11 +39,10 @@ RUN addgroup -g 1000 dataguard && \
 
 WORKDIR /home/dataguard
 
-COPY --from=builder --chown=dataguard:dataguard /build/cmd/init/init .
+COPY --from=builder --chown=dataguard:dataguard /build/cmd/dataangel/dataangel .
 COPY --from=builder --chown=dataguard:dataguard /build/cmd/data-guard-cli/cli .
-COPY --from=builder --chown=dataguard:dataguard /build/cmd/sidecar/sidecar .
 
 USER dataguard
 
 ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["./init"]
+CMD ["./dataangel"]

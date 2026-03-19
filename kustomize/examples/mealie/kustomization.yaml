@@ -10,7 +10,6 @@ resources:
   - deployment.yaml
 
 patches:
-  # Override mountPath: Mealie uses /app/data
   - target:
       kind: Deployment
       name: mealie
@@ -19,23 +18,8 @@ patches:
         path: /spec/template/spec/initContainers/0/volumeMounts/0/mountPath
         value: /app/data
       - op: replace
-        path: /spec/template/spec/containers/1/volumeMounts/0/mountPath
-        value: /app/data
-
-  # Override secret name: Use Mealie-specific Infisical secret
-  - target:
-      kind: Deployment
-      name: mealie
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/initContainers/0/env/3/valueFrom/secretKeyRef/name
+        path: /spec/template/spec/initContainers/0/env/8/valueFrom/secretKeyRef/name
         value: mealie-infisical-secret
       - op: replace
-        path: /spec/template/spec/initContainers/0/env/4/valueFrom/secretKeyRef/name
-        value: mealie-infisical-secret
-      - op: replace
-        path: /spec/template/spec/containers/1/env/3/valueFrom/secretKeyRef/name
-        value: mealie-infisical-secret
-      - op: replace
-        path: /spec/template/spec/containers/1/env/4/valueFrom/secretKeyRef/name
+        path: /spec/template/spec/initContainers/0/env/9/valueFrom/secretKeyRef/name
         value: mealie-infisical-secret

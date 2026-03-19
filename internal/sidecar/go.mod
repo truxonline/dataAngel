@@ -1,6 +1,6 @@
 module github.com/charchess/dataAngel/internal/sidecar
 
-go 1.23.0
+go 1.22
 
 require (
 	github.com/prometheus/client_golang v1.23.2
