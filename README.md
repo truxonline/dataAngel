@@ -143,25 +143,33 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
 
 ---
 
-## Architecture
+## Architecture (v0.2.0+)
+
+**Native Sidecar Init Container** (Kubernetes 1.29+)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Kubernetes Pod                          │
-│  ┌──────────────┐    ┌─────────────────────────────────┐  │
-│  │ Init Container│    │     Main Container              │  │
-│  │ (restore)     │    │     (your app)                 │  │
-│  └──────┬───────┘    └─────────────────────────────────┘  │
-│         │                                                 │
-│         ▼                                                 │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │              dataAngel Logic                         │ │
-│  │  - Litestream restore (SQLite)                      │ │
-│  │  - Rclone copy (filesystem)                         │ │
-│  │  - Skip if DB exists / No replica                   │ │
-│  └─────────────────────────────────────────────────────┘ │
-│                           │                               │
-└───────────────────────────┼───────────────────────────────┘
+│                                                               │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  dataangel (initContainer, restartPolicy: Always)   │    │
+│  │                                                       │    │
+│  │  Phase 1: RESTORE (blocks pod startup)              │    │
+│  │  └─ Litestream restore (SQLite)                      │    │
+│  │  └─ Rclone restore (filesystem)                      │    │
+│  │                                                       │    │
+│  │  Phase 2: BACKUP (runs as sidecar)                  │    │
+│  │  └─ Litestream replication (continuous)             │    │
+│  │  └─ Rclone sync (periodic)                          │    │
+│  │  └─ Metrics server :9090 (/metrics, /ready)         │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                   │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │     Main Container (your app)                       │    │
+│  │     Starts only after Phase 1 completes             │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                               │
+└───────────────────────────┼───────────────────────────────────┘
                             │
                             ▼
                     ┌───────────────┐
@@ -170,14 +178,26 @@ docker run charchess/dataangel:latest ./cli force-release-lock --lock-id myapp-l
                     └───────────────┘
 ```
 
+**Key Features:**
+- **1 container** instead of 2 (init + sidecar merged)
+- **Phase-aware**: RESTORE blocks startup, BACKUP runs continuously
+- **Auto-restart**: If backup daemon crashes, Kubernetes restarts it
+- **Observability**: Readiness probe (/ready), phase metrics, structured logs
+
 ### Components
 
 | Component | Purpose |
 |-----------|---------|
-| `init` | Restore data on pod startup if needed |
-| `sidecar` | Continuous backup daemon (Litestream + Rclone) |
+| `dataangel` | Unified binary: Phase 1 (restore) + Phase 2 (backup daemon) |
 | `cli` | Verify backups, force-release locks |
-| `metrics` | Prometheus metrics exporter |
+
+**Phases:**
+- **Phase 1 (RESTORE)**: Blocks pod startup, restores SQLite + filesystem from S3
+- **Phase 2 (BACKUP)**: Runs as sidecar, continuous replication (Litestream) + periodic sync (Rclone)
+
+**Metrics Server** (port 9090):
+- `/metrics` - Prometheus metrics (phase state, restore duration, sync stats)
+- `/ready` - Readiness probe (503 during restore, 200 during backup)
 
 ### Monitoring
 
@@ -201,42 +221,30 @@ For Prometheus Operator auto-discovery, use the **data-guard-monitoring** compon
 
 ## Environment Variables
 
-### Init Container
+### dataangel Container
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATA_GUARD_BUCKET` | Yes | S3 bucket name |
-| `DATA_GUARD_SQLITE_PATHS` | No* | Comma-separated SQLite paths for Litestream restore |
-| `DATA_GUARD_FS_PATHS` | No* | Comma-separated filesystem paths for Rclone restore |
-| `DATA_GUARD_S3_ENDPOINT` | No | Custom S3 endpoint URL (e.g., MinIO) |
-| `DATA_GUARD_FULL_LOGS` | No | Enable verbose logging (default: false) |
-| `AWS_ACCESS_KEY_ID` | Yes | S3 access key (via secret) |
-| `AWS_SECRET_ACCESS_KEY` | Yes | S3 secret key (via secret) |
-
-*At least **one** of `DATA_GUARD_SQLITE_PATHS` or `DATA_GUARD_FS_PATHS` must be set.
-
-### Sidecar Daemon
+The unified `dataangel` container uses the same environment variables for both phases:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATA_GUARD_BUCKET` | Yes | - | S3 bucket name |
-| `DATA_GUARD_S3_ENDPOINT` | No | - | Custom S3 endpoint URL (e.g., MinIO) |
-| `DATA_GUARD_SQLITE_PATHS` | No | - | Comma-separated SQLite paths for Litestream |
-| `DATA_GUARD_FS_PATHS` | No | - | Comma-separated filesystem paths for Rclone |
+| `DATA_GUARD_SQLITE_PATHS` | No* | - | Comma-separated SQLite paths (restore + backup) |
+| `DATA_GUARD_FS_PATHS` | No* | - | Comma-separated filesystem paths (restore + backup) |
 | `DATA_GUARD_YAML_PATHS` | No | - | Comma-separated YAML paths to validate |
-| `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Rclone sync interval |
+| `DATA_GUARD_S3_ENDPOINT` | No | - | Custom S3 endpoint URL (e.g., MinIO) |
+| `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Rclone sync interval (Phase 2) |
 | `DATA_GUARD_METRICS_ENABLED` | No | `true` | Enable Prometheus metrics server |
 | `DATA_GUARD_METRICS_PORT` | No | `9090` | Prometheus metrics port |
 | `DATA_GUARD_SHUTDOWN_TIMEOUT` | No | `15s` | Graceful shutdown timeout |
-| `AWS_ACCESS_KEY_ID` | Yes* | - | S3 access key (via secret) |
-| `AWS_SECRET_ACCESS_KEY` | Yes* | - | S3 secret key (via secret) |
+| `DATA_GUARD_FULL_LOGS` | No | `false` | Enable verbose logging |
+| `AWS_ACCESS_KEY_ID` | Yes | - | S3 access key (via secret) |
+| `AWS_SECRET_ACCESS_KEY` | Yes | - | S3 secret key (via secret) |
 
-*Required for S3 authentication. Litestream and Rclone read these automatically.
+*At least **one** of `DATA_GUARD_SQLITE_PATHS` or `DATA_GUARD_FS_PATHS` must be set.
 
-**Usage:**
+**Usage Example:**
 
 ```yaml
-# Create secret first
 apiVersion: v1
 kind: Secret
 metadata:
@@ -251,16 +259,11 @@ kind: Pod
 metadata:
   name: myapp
 spec:
-  containers:
-  - name: myapp
-    image: myapp:latest
-    volumeMounts:
-    - name: data
-      mountPath: /data
-  
-  - name: dataguard-sidecar
-    image: charchess/dataangel:latest
-    command: ["./sidecar"]
+  initContainers:
+  - name: dataangel
+    restartPolicy: Always
+    image: charchess/dataangel:0.2.0
+    command: ["./dataangel"]
     env:
     - name: DATA_GUARD_BUCKET
       value: "my-backup-bucket"
@@ -270,6 +273,8 @@ spec:
       value: "/config"
     - name: DATA_GUARD_RCLONE_INTERVAL
       value: "300s"
+    - name: DATA_GUARD_METRICS_ENABLED
+      value: "true"
     - name: AWS_ACCESS_KEY_ID
       valueFrom:
         secretKeyRef:
@@ -283,11 +288,24 @@ spec:
     ports:
     - containerPort: 9090
       name: metrics
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 9090
+      initialDelaySeconds: 0
+      periodSeconds: 2
     volumeMounts:
     - name: data
       mountPath: /data
     - name: config
       mountPath: /config
+  
+  containers:
+  - name: myapp
+    image: myapp:latest
+    volumeMounts:
+    - name: data
+      mountPath: /data
   
   volumes:
   - name: data
@@ -295,6 +313,8 @@ spec:
   - name: config
     emptyDir: {}
 ```
+
+**Note:** `restartPolicy: Always` on the init container makes it behave as a sidecar after Phase 1 completes. Requires Kubernetes 1.29+.
 
 ### CLI
 

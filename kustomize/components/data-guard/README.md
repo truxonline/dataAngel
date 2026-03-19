@@ -1,6 +1,12 @@
-# data-guard Kustomize Component
+# data-guard Kustomize Component (v0.2.0+)
 
-Ce component injecte automatiquement l'init container **et** le sidecar data-guard dans vos Deployments.
+Ce component injecte automatiquement le container **dataangel** (native sidecar init container) dans vos Deployments.
+
+**Architecture**: 1 container unifié avec `restartPolicy: Always`
+- Phase 1 (RESTORE): Bloque le démarrage du pod, restore depuis S3
+- Phase 2 (BACKUP): Tourne en continu comme sidecar (litestream + rclone)
+
+**Requires**: Kubernetes 1.29+ (native sidecar support)
 
 ## Usage de base
 
@@ -48,13 +54,13 @@ spec:
 
 ## SecurityContext critique (Permissions fichiers)
 
-⚠️ **IMPORTANT** : Les containers data-guard (init + sidecar) **doivent tourner avec le même UID/GID que votre application**.
+⚠️ **IMPORTANT** : Le container dataangel **doit tourner avec le même UID/GID que votre application**.
 
 ### Pourquoi ?
 
 Les fichiers (SQLite DB, configs) sont partagés via un volume entre :
-- Init container (restore)
-- Sidecar (backup continu)
+- dataangel container Phase 1 (restore)
+- dataangel container Phase 2 (backup continu)
 - Votre app (lecture/écriture)
 
 **Si les UIDs diffèrent** → permission denied, backup/restore échoue.
