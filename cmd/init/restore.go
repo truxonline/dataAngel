@@ -138,6 +138,8 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string) e
 		fsPath,
 		"--s3-env-auth",
 		"--exclude", "*.db*",
+		"--timeout", "60s",
+		"--contimeout", "15s",
 	}
 
 	if s3Endpoint != "" {

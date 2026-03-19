@@ -528,7 +528,123 @@ sqlite3 /data/test.db "PRAGMA integrity_check;"
 # Expected: ok
 ```
 
-## Test 7: MinIO Endpoint Validation (Issue #1)
+## Test 7: Rclone Timeout on Empty S3 Prefix (Issue #4)
+
+Ce test valide que rclone n'hang pas indéfiniment quand le prefix S3 n'existe pas.
+
+### Contexte
+
+Au premier démarrage (bucket vide, pas d'historique FS), `rclone copy` pouvait hang indéfiniment sans retourner.
+
+**Fix appliqué** : Ajout de timeouts rclone :
+- `--timeout 60s` : timeout global opération
+- `--contimeout 15s` : timeout connexion S3
+
+### Validation
+
+```bash
+# 1. Bucket vide (pas de prefix filesystem)
+# Pas de setup préalable nécessaire
+
+# 2. Déployer avec FS_PATHS
+kubectl apply -f test-fs-only.yaml
+# annotations:
+#   data-guard.io/fs-paths: "/config"
+
+# 3. Attendre max 60s (timeout)
+kubectl wait --for=condition=Ready pod -l app=test-fs-only --timeout=90s
+```
+
+**Expected behavior** :
+- Init container termine en <90s (même avec prefix vide)
+- Logs : `rclone copy` se termine (exit 0 ou timeout)
+- Pod devient Ready
+
+**NOT expected** (old behavior) :
+- Init hang >2min
+- Pod jamais Ready
+
+### Success Criteria
+
+- ✅ Init container termine en <90s
+- ✅ Pas de hang indéfini
+- ✅ Pod devient Ready même sans backup FS préexistant
+- ✅ Sidecar rclone sync timeout configuré (120s)
+
+## Test 8: Metrics Instrumentation (Issue #5)
+
+Ce test valide que les métriques Prometheus reflètent l'état réel des subprocess.
+
+### Contexte
+
+Les métriques étaient exposées mais toujours à 0, même en cas d'erreur.
+
+**Fix appliqué** :
+- Instrumentation rclone : `SyncsTotal`, `SyncsFailed`, `RcloneUp`, `SyncDuration`
+- Instrumentation litestream : `LitestreamUp`
+- Métriques updated après chaque cycle
+
+### Validation
+
+```bash
+# 1. Déployer avec métriques activées
+kubectl apply -k kustomize/examples/mealie/
+# annotation: data-guard.io/metrics-enabled: "true"
+
+# 2. Attendre quelques syncs rclone (~2min)
+sleep 120
+
+# 3. Scraper les métriques
+kubectl port-forward -n mealie deploy/mealie 9090:9090 &
+curl http://localhost:9090/metrics | grep dataguard
+```
+
+**Expected metrics (après 2 syncs réussis)** :
+```
+dataguard_litestream_up 1
+dataguard_rclone_up 1
+dataguard_rclone_syncs_total 2
+dataguard_rclone_syncs_failed_total 0
+dataguard_rclone_sync_duration_seconds_bucket{le="+Inf"} 2
+dataguard_sidecar_uptime_seconds 120
+```
+
+### Test erreur S3
+
+Simuler une panne S3 et vérifier que les métriques reflètent l'état :
+
+```bash
+# 1. Bloquer accès MinIO (firewall ou scale down)
+kubectl scale -n minio deployment minio --replicas=0
+
+# 2. Attendre un cycle rclone (60s)
+sleep 70
+
+# 3. Vérifier métriques
+curl http://localhost:9090/metrics | grep dataguard_rclone
+```
+
+**Expected (S3 down)** :
+```
+dataguard_rclone_up 0
+dataguard_rclone_syncs_failed_total 1
+```
+
+**Expected logs sidecar** :
+```
+rclone sync error: ...
+```
+
+### Success Criteria
+
+- ✅ `rclone_syncs_total` incrémente après chaque sync réussi
+- ✅ `rclone_syncs_failed_total` incrémente en cas d'erreur
+- ✅ `rclone_up` = 1 quand OK, 0 quand erreur
+- ✅ `litestream_up` = 1 au démarrage
+- ✅ `sync_duration_seconds` enregistre les durées réelles
+- ✅ Métriques utilisables pour alerting Prometheus
+
+## Test 9: MinIO Endpoint Validation (Issue #1)
 
 Ce test valide le fix pour [issue #1](https://github.com/truxonline/dataAngel/issues/1): litestream restore avec endpoint custom.
 
@@ -631,11 +747,11 @@ Running: litestream restore -if-db-not-exists -if-replica-exists -replica s3://m
 
 Pas de fichier config généré, utilise le flag `-replica` directement.
 
-## Test 8: Métriques Optionnelles (metrics-enabled annotation)
+## Test 10: Métriques Optionnelles (metrics-enabled annotation)
 
 Ce test valide que le serveur de métriques démarre/skip selon l'annotation.
 
-### Test 8a: Métriques activées (production)
+### Test 10a: Métriques activées (production)
 
 ```yaml
 apiVersion: apps/v1
@@ -671,7 +787,7 @@ curl http://localhost:9090/metrics | grep dataguard
 - ✅ Port 9090 accessible et répond avec métriques Prometheus
 - ✅ Métriques `dataguard_*` présentes
 
-### Test 8b: Métriques désactivées (dev/CI)
+### Test 10b: Métriques désactivées (dev/CI)
 
 ```yaml
 apiVersion: apps/v1
@@ -707,7 +823,7 @@ curl http://localhost:9090/metrics
 - ✅ Port 9090 ne répond pas (serveur pas démarré)
 - ✅ Sidecar continue de fonctionner normalement (Litestream + Rclone actifs)
 
-### Test 8c: PodMonitor discovery (avec Prometheus Operator)
+### Test 10c: PodMonitor discovery (avec Prometheus Operator)
 
 **Prérequis**: Prometheus Operator installé (CRD `monitoring.coreos.com/v1`)
 
@@ -751,10 +867,12 @@ Une fois tous les tests passés:
 - [ ] Test 4 (Skip behavior): ✅
 - [ ] Test 5 (Error handling): ✅
 - [ ] Test 6 (Corruption detection): ✅ (fix issue #3)
-- [ ] Test 7 (MinIO endpoint): ✅ (fix issue #1)
-- [ ] Test 8a (Métriques activées): ✅
-- [ ] Test 8b (Métriques désactivées): ✅
-- [ ] Test 8c (PodMonitor discovery): ✅ (si Prometheus Operator installé)
+- [ ] Test 7 (Rclone timeout): ✅ (fix issue #4)
+- [ ] Test 8 (Metrics instrumentation): ✅ (fix issue #5)
+- [ ] Test 9 (MinIO endpoint): ✅ (fix issue #1)
+- [ ] Test 10a (Métriques activées): ✅
+- [ ] Test 10b (Métriques désactivées): ✅
+- [ ] Test 10c (PodMonitor discovery): ✅ (si Prometheus Operator installé)
 - [ ] Sidecar continuous backup fonctionne
 - [ ] Documentation à jour (README.md, devops_brief.md)
 

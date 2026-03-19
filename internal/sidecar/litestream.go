@@ -28,12 +28,14 @@ func (r *realCommandRunner) Run(ctx context.Context, name string, args ...string
 type LitestreamRunner struct {
 	ConfigPath string
 	runner     CommandRunner
+	metrics    *SidecarMetrics
 }
 
 func NewLitestreamRunner(configPath string) *LitestreamRunner {
 	return &LitestreamRunner{
 		ConfigPath: configPath,
 		runner:     &realCommandRunner{},
+		metrics:    GetMetrics(),
 	}
 }
 
@@ -42,5 +44,15 @@ func (l *LitestreamRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("litestream config path is required")
 	}
 
-	return l.runner.Run(ctx, "litestream", "replicate", "-config", l.ConfigPath)
+	if l.metrics != nil {
+		l.metrics.LitestreamUp.Set(1)
+	}
+
+	err := l.runner.Run(ctx, "litestream", "replicate", "-config", l.ConfigPath)
+
+	if err != nil && err != context.Canceled && l.metrics != nil {
+		l.metrics.LitestreamUp.Set(0)
+	}
+
+	return err
 }

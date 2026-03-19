@@ -13,6 +13,7 @@ type RcloneRunner struct {
 	Bucket     string
 	S3Endpoint string
 	runner     CommandRunner
+	metrics    *SidecarMetrics
 }
 
 // NewRcloneRunner creates a new runner
@@ -23,6 +24,7 @@ func NewRcloneRunner(interval time.Duration, fsPaths []string, bucket, s3Endpoin
 		Bucket:     bucket,
 		S3Endpoint: s3Endpoint,
 		runner:     &realCommandRunner{},
+		metrics:    GetMetrics(),
 	}
 }
 
@@ -42,10 +44,23 @@ func (r *RcloneRunner) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			// Run sync (non-blocking - errors logged but don't stop loop)
+			start := time.Now()
 			err := r.syncOnce(ctx)
+
+			if r.metrics != nil {
+				duration := time.Since(start).Seconds()
+				r.metrics.SyncDuration.Observe(duration)
+
+				if err != nil {
+					r.metrics.SyncsFailed.Inc()
+					r.metrics.RcloneUp.Set(0)
+				} else {
+					r.metrics.SyncsTotal.Inc()
+					r.metrics.RcloneUp.Set(1)
+				}
+			}
+
 			if err != nil {
-				// Log error but continue (rclone errors shouldn't stop daemon)
 				fmt.Printf("rclone sync error: %v\n", err)
 			}
 		}
@@ -61,6 +76,8 @@ func (r *RcloneRunner) syncOnce(ctx context.Context) error {
 		"--s3-env-auth",
 		"--checksum",
 		"--min-age", "30s",
+		"--timeout", "120s",
+		"--contimeout", "30s",
 	}
 
 	if r.S3Endpoint != "" {
