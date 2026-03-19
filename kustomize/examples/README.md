@@ -27,10 +27,12 @@ Exemples d'intégration du component data-guard pour apps courantes.
 Tous les exemples suivent ce pattern:
 
 1. **Component générique**: `../../components/data-guard`
-2. **Patches spécifiques**:
+2. **Annotations**: Configurent bucket, paths SQLite/FS, endpoint S3, deployment name
+3. **Strategic Merge Patches** (stable, merge par nom):
    - Override `mountPath` (chaque app utilise un path différent)
    - Override `secret name` (chaque app a son secret Infisical)
-3. **Annotations**: Configurent bucket, paths SQLite/FS, endpoint S3
+
+**Pourquoi strategic merge?** Merge par **nom** (`name: dataangel`), pas par index. Stable même si le component change l'ordre des containers/env vars.
 
 ## Adapter pour votre app
 
@@ -39,18 +41,26 @@ Tous les exemples suivent ce pattern:
 cp -r mealie/ my-app/
 cd my-app/
 
+# Modifier deployment.yaml:
+# - Ajuster annotations data-guard.io/* (IMPORTANT: deployment-name unique!)
+# - Ajuster securityContext (runAsUser/runAsGroup selon votre app)
+# - Ajuster image, ports, env vars de votre app
+
 # Modifier kustomization.yaml:
 # - Changer namespace
-# - Changer mountPath
-# - Changer secret name
-
-# Modifier deployment.yaml:
-# - Ajuster annotations data-guard.io/*
-# - Ajuster image, ports, env vars de votre app
+# - Patch: changer mountPath (si différent de /data)
+# - Patch: changer volumeMount name (si différent de "data")
+# - Patch: changer secret name (si différent de data-guard-credentials)
 
 # Déployer
 kubectl apply -k .
 ```
+
+**Checklist critique:**
+- ✅ `deployment-name` annotation unique par deployment
+- ✅ `runAsUser`/`runAsGroup` matchent l'UID de votre app
+- ✅ Volume name dans patch correspond au volume dans deployment
+- ✅ Au moins un de `sqlite-paths` ou `fs-paths` défini
 
 ## Limitations kustomize
 

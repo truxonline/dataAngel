@@ -14,15 +14,24 @@ patches:
       kind: Deployment
       name: home-assistant
     patch: |-
-      - op: replace
-        path: /spec/template/spec/initContainers/0/volumeMounts/0/name
-        value: config
-      - op: replace
-        path: /spec/template/spec/initContainers/0/volumeMounts/0/mountPath
-        value: /config
-      - op: replace
-        path: /spec/template/spec/initContainers/0/env/8/valueFrom/secretKeyRef/name
-        value: home-assistant-infisical-secret
-      - op: replace
-        path: /spec/template/spec/initContainers/0/env/9/valueFrom/secretKeyRef/name
-        value: home-assistant-infisical-secret
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: home-assistant
+      spec:
+        template:
+          spec:
+            initContainers:
+              - name: dataangel
+                volumeMounts:
+                  - name: config
+                    mountPath: /config
+                env:
+                  - name: AWS_ACCESS_KEY_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: home-assistant-infisical-secret
+                  - name: AWS_SECRET_ACCESS_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: home-assistant-infisical-secret

@@ -7,8 +7,17 @@ Exemple d'intégration du component data-guard pour Mealie.
 - **mountPath**: `/app/data` (pas `/data`)
 - **SQLite DB**: `/app/data/mealie.db`
 - **Filesystem**: `/app/data/recipes`, `/app/data/user-files`
+- **Deployment name**: `mealie` (pour distributed lock)
 - **Secret**: `mealie-infisical-secret` (géré par Infisical)
 - **UID/GID**: `911:911` (user linuxserver.io standard)
+
+### Patches (Strategic Merge)
+
+Le `kustomization.yaml` utilise **strategic merge patches** pour override:
+- `volumeMount.mountPath`: `/app/data` (au lieu du défaut `/data`)
+- `secret name`: `mealie-infisical-secret` (au lieu de `data-guard-credentials`)
+
+Pattern stable par **nom** (`name: dataangel`, `name: AWS_ACCESS_KEY_ID`), pas par index.
 
 ### SecurityContext
 

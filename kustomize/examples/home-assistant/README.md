@@ -5,11 +5,22 @@ Exemple d'intégration du component data-guard pour Home Assistant.
 ## Spécificités Home Assistant
 
 - **mountPath**: `/config` (pas `/data`)
+- **Volume name**: `config` (pas `data`)
 - **SQLite DB**: `/config/home-assistant_v2.db`
 - **Filesystem**: `/config` (tout le répertoire config)
+- **Deployment name**: `home-assistant` (pour distributed lock)
 - **Secret**: `home-assistant-infisical-secret` (géré par Infisical)
 - **Network**: `hostNetwork: true` (nécessaire pour découverte locale)
 - **UID/GID**: `0:0` (root, nécessaire pour hardware access)
+
+### Patches (Strategic Merge)
+
+Le `kustomization.yaml` utilise **strategic merge patches** pour override:
+- `volumeMount.name`: `config` (au lieu de `data`)
+- `volumeMount.mountPath`: `/config` (au lieu de `/data`)
+- `secret name`: `home-assistant-infisical-secret` (au lieu de `data-guard-credentials`)
+
+Pattern stable par **nom** (`name: dataangel`, `name: config`), pas par index.
 
 ### SecurityContext
 

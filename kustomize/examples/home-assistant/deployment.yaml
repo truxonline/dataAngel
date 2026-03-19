@@ -17,6 +17,8 @@ spec:
         data-guard.io/sqlite-paths: "/config/home-assistant_v2.db"
         data-guard.io/fs-paths: "/config"
         data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        data-guard.io/deployment-name: "home-assistant"
+        data-guard.io/lock-ttl: "60s"
         data-guard.io/rclone-interval: "300s"
         data-guard.io/metrics-enabled: "true"
     spec:

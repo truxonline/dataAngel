@@ -1,12 +1,14 @@
-# data-guard Kustomize Component (v0.2.0+)
+# data-guard Kustomize Component (v0.3.0+)
 
 Ce component injecte automatiquement le container **dataangel** (native sidecar init container) dans vos Deployments.
 
 **Architecture**: 1 container unifié avec `restartPolicy: Always`
 - Phase 1 (RESTORE): Bloque le démarrage du pod, restore depuis S3
-- Phase 2 (BACKUP): Tourne en continu comme sidecar (litestream + rclone)
+- Phase 2 (BACKUP): Acquiert lock S3, tourne en continu comme sidecar (litestream + rclone)
 
 **Requires**: Kubernetes 1.29+ (native sidecar support)
+
+**New in v0.3.0**: Distributed locking pour RollingUpdate safety (prévient split brain)
 
 ## Usage de base
 
@@ -30,12 +32,14 @@ kind: Deployment
 metadata:
   name: myapp
   annotations:
-    data-guard.io/bucket: "my-backup-bucket"
-    data-guard.io/sqlite-paths: "/data/app.db"           # Optionnel (si SQLite)
-    data-guard.io/fs-paths: "/config"                    # Optionnel (si filesystem)
-    data-guard.io/s3-endpoint: "http://minio:9000"       # Optionnel (défaut: AWS S3)
-    data-guard.io/rclone-interval: "300s"                # Optionnel (défaut: 60s)
-    data-guard.io/metrics-enabled: "true"                # Optionnel (défaut: true)
+    data-guard.io/bucket: "my-backup-bucket"              # REQUIS
+    data-guard.io/deployment-name: "myapp"                # REQUIS (v0.3.0+, pour distributed lock)
+    data-guard.io/sqlite-paths: "/data/app.db"            # Optionnel (si SQLite)
+    data-guard.io/fs-paths: "/config"                     # Optionnel (si filesystem)
+    data-guard.io/s3-endpoint: "http://minio:9000"        # Optionnel (défaut: AWS S3)
+    data-guard.io/lock-ttl: "60s"                         # Optionnel (défaut: 60s)
+    data-guard.io/rclone-interval: "300s"                 # Optionnel (défaut: 60s)
+    data-guard.io/metrics-enabled: "true"                 # Optionnel (défaut: true)
 spec:
   template:
     spec:
@@ -50,7 +54,11 @@ spec:
         emptyDir: {}
 ```
 
-**Note**: Au moins **un** de `sqlite-paths` ou `fs-paths` doit être défini.
+**Notes importantes:**
+- Au moins **un** de `sqlite-paths` ou `fs-paths` doit être défini
+- `deployment-name` est **requis** (v0.3.0+) pour le distributed lock RollingUpdate
+  - Doit être **unique** par deployment dans le bucket S3
+  - Utilisé comme clé de lock: `.locks/{deployment-name}`
 
 ## SecurityContext critique (Permissions fichiers)
 
@@ -128,67 +136,71 @@ kubectl create secret generic data-guard-credentials \
 
 ### Override du nom du secret
 
-Si votre app utilise un secret différent (e.g., secret Infisical par app), ajoutez un patch:
+Si votre app utilise un secret différent (e.g., secret Infisical par app), utilisez un **strategic merge patch**:
 
 ```yaml
 # kustomization.yaml
 patches:
-  # Override secret name pour init container
   - target:
       kind: Deployment
       name: myapp
     patch: |-
-      - op: replace
-        path: /spec/template/spec/initContainers/0/env/3/valueFrom/secretKeyRef/name
-        value: myapp-infisical-secret
-      - op: replace
-        path: /spec/template/spec/initContainers/0/env/4/valueFrom/secretKeyRef/name
-        value: myapp-infisical-secret
-  
-  # Override secret name pour sidecar
-  - target:
+      apiVersion: apps/v1
       kind: Deployment
-      name: myapp
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/1/env/3/valueFrom/secretKeyRef/name
-        value: myapp-infisical-secret
-      - op: replace
-        path: /spec/template/spec/containers/1/env/4/valueFrom/secretKeyRef/name
-        value: myapp-infisical-secret
+      metadata:
+        name: myapp
+      spec:
+        template:
+          spec:
+            initContainers:
+              - name: dataangel
+                env:
+                  - name: AWS_ACCESS_KEY_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: myapp-infisical-secret
+                  - name: AWS_SECRET_ACCESS_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: myapp-infisical-secret
 ```
 
-**Note**: Les index (`env/3`, `env/4`) correspondent aux positions de `AWS_ACCESS_KEY_ID` et `AWS_SECRET_ACCESS_KEY`. Vérifier avec `kubectl get deployment myapp -o yaml` après application du component.
+**Avantages du strategic merge:**
+- Merge par **nom** (`name: dataangel`, `name: AWS_ACCESS_KEY_ID`), pas par index
+- **Stable**: fonctionne même si l'ordre des env vars change dans le component
+- Plus lisible et maintenable
 
 ## Override du mountPath (défaut: /data)
 
 ⚠️ **Le component monte par défaut le volume `data` sur `/data`.**
 
-Si votre app utilise un autre path (e.g., Mealie: `/app/data`, Home Assistant: `/config`), ajoutez un patch:
+Si votre app utilise un autre path (e.g., Mealie: `/app/data`, Home Assistant: `/config`), utilisez un **strategic merge patch**:
 
 ```yaml
 # kustomization.yaml
 patches:
-  # Override init container mountPath
   - target:
       kind: Deployment
       name: myapp
     patch: |-
-      - op: replace
-        path: /spec/template/spec/initContainers/0/volumeMounts/0/mountPath
-        value: /app/data
-  
-  # Override sidecar mountPath
-  - target:
+      apiVersion: apps/v1
       kind: Deployment
-      name: myapp
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/1/volumeMounts/0/mountPath
-        value: /app/data
+      metadata:
+        name: myapp
+      spec:
+        template:
+          spec:
+            initContainers:
+              - name: dataangel
+                volumeMounts:
+                  - name: data
+                    mountPath: /app/data
 ```
 
-**Note**: Les index (`initContainers/0`, `containers/1`) peuvent varier selon votre deployment. Toujours vérifier avec `kubectl get deployment myapp -o yaml` après application.
+**Avantages du strategic merge:**
+- Merge par **nom** (`name: dataangel`, `name: data`), pas par index
+- **Stable**: fonctionne même si l'ordre des containers/volumeMounts change
+- Un seul patch affecte automatiquement init + sidecar (même container avec `restartPolicy: Always`)
 
 ### Pourquoi ces valeurs sont hardcodées?
 

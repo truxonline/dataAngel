@@ -14,12 +14,24 @@ patches:
       kind: Deployment
       name: mealie
     patch: |-
-      - op: replace
-        path: /spec/template/spec/initContainers/0/volumeMounts/0/mountPath
-        value: /app/data
-      - op: replace
-        path: /spec/template/spec/initContainers/0/env/8/valueFrom/secretKeyRef/name
-        value: mealie-infisical-secret
-      - op: replace
-        path: /spec/template/spec/initContainers/0/env/9/valueFrom/secretKeyRef/name
-        value: mealie-infisical-secret
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: mealie
+      spec:
+        template:
+          spec:
+            initContainers:
+              - name: dataangel
+                volumeMounts:
+                  - name: data
+                    mountPath: /app/data
+                env:
+                  - name: AWS_ACCESS_KEY_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: mealie-infisical-secret
+                  - name: AWS_SECRET_ACCESS_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: mealie-infisical-secret
