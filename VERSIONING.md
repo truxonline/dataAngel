@@ -138,6 +138,7 @@ tags: |
 
 | Version | Date | Description |
 |---------|------|-------------|
+| v0.2.0 | 2026-03-19 | Native sidecar init container (K8s 1.29+), phase metrics, readiness probe |
 | v0.1.0 | 2026-03-19 | Initial stable release (5 issues fixed) |
 
 ## FAQ
