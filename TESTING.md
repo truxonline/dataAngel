@@ -437,7 +437,98 @@ kubectl logs -l app=test-error -c data-guard-init
 - ✅ Logs montrent erreur S3 authentification
 - ✅ Pod reste en Init:Error state
 
-## Test 6: MinIO Endpoint Validation (Issue #1)
+## Test 6: Corruption Detection (Issue #3)
+
+Ce test valide la détection et récupération automatique des bases SQLite corrompues.
+
+### Contexte
+
+Si une DB locale existe mais est corrompue (header écrasé, fichier tronqué), l'init container doit :
+1. Détecter la corruption via `PRAGMA integrity_check`
+2. Supprimer la DB corrompue
+3. Restaurer depuis S3
+
+**Sans le fix** (issue #3) : Litestream skip (`-if-db-not-exists`), app crash avec DB corrompue.
+
+### Validation automatique (tests unitaires)
+
+```bash
+# Dans le repository local
+cd cmd/init
+go test -v -run TestIsSQLiteHealthy
+
+# Expected output:
+# === RUN   TestIsSQLiteHealthy/healthy_database        ✅
+# === RUN   TestIsSQLiteHealthy/corrupted_database_header  ✅
+# === RUN   TestIsSQLiteHealthy/non-existent_database   ✅
+# === RUN   TestIsSQLiteHealthy/empty_file              ✅
+# PASS
+```
+
+### Validation manuelle (cluster K8s)
+
+Simuler une corruption et vérifier la récupération automatique :
+
+```bash
+# 1. Déployer avec DB saine
+kubectl apply -f test-sqlite-only.yaml
+kubectl wait --for=condition=Ready pod -l app=test-sqlite-only
+
+# 2. Corrompre la DB manuellement
+kubectl exec -it deploy/test-sqlite-only -- sh -c "dd if=/dev/urandom of=/data/test.db bs=512 count=8 conv=notrunc"
+
+# 3. Redémarrer le pod (trigger init container)
+kubectl delete pod -l app=test-sqlite-only
+kubectl wait --for=condition=Ready pod -l app=test-sqlite-only
+
+# 4. Vérifier les logs init
+kubectl logs -l app=test-sqlite-only -c data-guard-init
+```
+
+**Expected logs**:
+```
+WARNING: Database exists but is corrupted, removing: /data/test.db
+Corrupted database removed, proceeding with restore
+Running: litestream restore -config /tmp/litestream-restore-*.yml -if-db-not-exists -if-replica-exists /data/test.db
+SQLite restored successfully: /data/test.db
+```
+
+**NOT expected** (old behavior):
+```
+database already exists, skipping
+SQLite restored successfully
+```
+
+### Cas testés
+
+| Cas DB locale | Backup S3 | Comportement attendu |
+|---------------|-----------|---------------------|
+| Pas de DB | Présent | ✅ Restore depuis S3 |
+| DB saine | Présent | ✅ Skip restore (DB existe) |
+| DB corrompue (header écrasé) | Présent | ✅ **Supprimer + Restore** |
+| DB vide (0 bytes) | Présent | ✅ **Supprimer + Restore** |
+| DB corrompue | Pas de backup | ⚠️ Supprimer, restore fail (no replica) |
+
+### Success Criteria
+
+- ✅ `isSQLiteHealthy()` détecte header corrompu
+- ✅ `isSQLiteHealthy()` détecte fichier vide
+- ✅ `isSQLiteHealthy()` valide DB saine (retourne true)
+- ✅ DB corrompue supprimée automatiquement
+- ✅ Restore S3 se déclenche après suppression
+- ✅ Logs montrent "WARNING: Database exists but is corrupted"
+- ✅ App démarre avec DB restaurée (pas de crash)
+
+### Vérifier l'intégrité après restore
+
+```bash
+kubectl exec -it deploy/test-sqlite-only -- sh
+# Dans le pod:
+sqlite3 /data/test.db "PRAGMA integrity_check;"
+# Expected: ok
+```
+
+## Test 7: MinIO Endpoint Validation (Issue #1)
 
 Ce test valide le fix pour [issue #1](https://github.com/truxonline/dataAngel/issues/1): litestream restore avec endpoint custom.
 
@@ -540,11 +631,11 @@ Running: litestream restore -if-db-not-exists -if-replica-exists -replica s3://m
 
 Pas de fichier config généré, utilise le flag `-replica` directement.
 
-## Test 7: Métriques Optionnelles (metrics-enabled annotation)
+## Test 8: Métriques Optionnelles (metrics-enabled annotation)
 
 Ce test valide que le serveur de métriques démarre/skip selon l'annotation.
 
-### Test 7a: Métriques activées (production)
+### Test 8a: Métriques activées (production)
 
 ```yaml
 apiVersion: apps/v1
@@ -580,7 +671,7 @@ curl http://localhost:9090/metrics | grep dataguard
 - ✅ Port 9090 accessible et répond avec métriques Prometheus
 - ✅ Métriques `dataguard_*` présentes
 
-### Test 7b: Métriques désactivées (dev/CI)
+### Test 8b: Métriques désactivées (dev/CI)
 
 ```yaml
 apiVersion: apps/v1
@@ -616,7 +707,7 @@ curl http://localhost:9090/metrics
 - ✅ Port 9090 ne répond pas (serveur pas démarré)
 - ✅ Sidecar continue de fonctionner normalement (Litestream + Rclone actifs)
 
-### Test 7c: PodMonitor discovery (avec Prometheus Operator)
+### Test 8c: PodMonitor discovery (avec Prometheus Operator)
 
 **Prérequis**: Prometheus Operator installé (CRD `monitoring.coreos.com/v1`)
 
@@ -659,10 +750,11 @@ Une fois tous les tests passés:
 - [ ] Test 3 (Combined): ✅
 - [ ] Test 4 (Skip behavior): ✅
 - [ ] Test 5 (Error handling): ✅
-- [ ] Test 6 (MinIO endpoint): ✅ (fix issue #1)
-- [ ] Test 7a (Métriques activées): ✅
-- [ ] Test 7b (Métriques désactivées): ✅
-- [ ] Test 7c (PodMonitor discovery): ✅ (si Prometheus Operator installé)
+- [ ] Test 6 (Corruption detection): ✅ (fix issue #3)
+- [ ] Test 7 (MinIO endpoint): ✅ (fix issue #1)
+- [ ] Test 8a (Métriques activées): ✅
+- [ ] Test 8b (Métriques désactivées): ✅
+- [ ] Test 8c (PodMonitor discovery): ✅ (si Prometheus Operator installé)
 - [ ] Sidecar continuous backup fonctionne
 - [ ] Documentation à jour (README.md, devops_brief.md)
 

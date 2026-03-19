@@ -1,9 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestGenerateLitestreamConfig(t *testing.T) {
@@ -85,5 +89,106 @@ func TestGenerateLitestreamConfig_FileCreation(t *testing.T) {
 
 	if !strings.HasSuffix(configPath, ".yml") {
 		t.Errorf("config path should end with .yml: %s", configPath)
+	}
+}
+
+func TestIsSQLiteHealthy(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(t *testing.T) string
+		expected bool
+	}{
+		{
+			name: "healthy database",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				dbPath := filepath.Join(tmpDir, "healthy.db")
+
+				db, err := sql.Open("sqlite3", dbPath)
+				if err != nil {
+					t.Fatalf("failed to create test DB: %v", err)
+				}
+				defer db.Close()
+
+				_, err = db.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+				if err != nil {
+					t.Fatalf("failed to create table: %v", err)
+				}
+
+				_, err = db.Exec("INSERT INTO test (name) VALUES ('test')")
+				if err != nil {
+					t.Fatalf("failed to insert data: %v", err)
+				}
+
+				return dbPath
+			},
+			expected: true,
+		},
+		{
+			name: "corrupted database header",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				dbPath := filepath.Join(tmpDir, "corrupted.db")
+
+				db, err := sql.Open("sqlite3", dbPath)
+				if err != nil {
+					t.Fatalf("failed to create test DB: %v", err)
+				}
+				defer db.Close()
+
+				_, err = db.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY)")
+				if err != nil {
+					t.Fatalf("failed to create table: %v", err)
+				}
+				db.Close()
+
+				file, err := os.OpenFile(dbPath, os.O_RDWR, 0644)
+				if err != nil {
+					t.Fatalf("failed to open DB for corruption: %v", err)
+				}
+				defer file.Close()
+
+				_, err = file.WriteAt([]byte("CORRUPTED_HEADER"), 0)
+				if err != nil {
+					t.Fatalf("failed to corrupt header: %v", err)
+				}
+
+				return dbPath
+			},
+			expected: false,
+		},
+		{
+			name: "non-existent database",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				return filepath.Join(tmpDir, "nonexistent.db")
+			},
+			expected: false,
+		},
+		{
+			name: "empty file",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				dbPath := filepath.Join(tmpDir, "empty.db")
+
+				if err := os.WriteFile(dbPath, []byte{}, 0644); err != nil {
+					t.Fatalf("failed to create empty file: %v", err)
+				}
+
+				return dbPath
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dbPath := tt.setup(t)
+			result := isSQLiteHealthy(dbPath)
+
+			if result != tt.expected {
+				t.Errorf("isSQLiteHealthy() = %v, want %v", result, tt.expected)
+			}
+		})
 	}
 }

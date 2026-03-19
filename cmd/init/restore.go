@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func generateLitestreamConfig(dbPath, bucket, s3Endpoint string) (string, error) {
@@ -31,10 +34,48 @@ func generateLitestreamConfig(dbPath, bucket, s3Endpoint string) (string, error)
 	return configPath, nil
 }
 
+func isSQLiteHealthy(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	if err != nil {
+		return false
+	}
+
+	if info.Size() == 0 {
+		return false
+	}
+
+	db, err := sql.Open("sqlite3", path+"?mode=ro")
+	if err != nil {
+		return false
+	}
+	defer db.Close()
+
+	var result string
+	err = db.QueryRow("PRAGMA integrity_check").Scan(&result)
+	if err != nil {
+		return false
+	}
+
+	return result == "ok"
+}
+
 func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string) error {
 	dbPath = strings.TrimSpace(dbPath)
 	if dbPath == "" {
 		return nil
+	}
+
+	if _, err := os.Stat(dbPath); err == nil {
+		if !isSQLiteHealthy(dbPath) {
+			fmt.Printf("WARNING: Database exists but is corrupted, removing: %s\n", dbPath)
+			if err := os.Remove(dbPath); err != nil {
+				return fmt.Errorf("failed to remove corrupted database: %w", err)
+			}
+			fmt.Printf("Corrupted database removed, proceeding with restore\n")
+		}
 	}
 
 	var args []string
