@@ -9,7 +9,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      data-guard.io/enabled: "true"
+      dataangel.io/enabled: "true"
   
   namespaceSelector:
     any: true

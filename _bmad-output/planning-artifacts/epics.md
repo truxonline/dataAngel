@@ -170,7 +170,7 @@ Outils de diagnostic pour résoudre les problèmes manuellement.
 **Acceptance Criteria:**
 
 **Given** j'accède au CLI depuis mon poste de travail,
-**When** j'exécute `data-guard-cli verify --bucket myapp`,
+**When** j'exécute `dataangel-cli verify --bucket myapp`,
 **Then** je vois l'état actuel des backups dans S3,
 **And** je vois si des restaurations sont nécessaires.
 
@@ -333,7 +333,7 @@ Outils de diagnostic pour résoudre les problèmes manuellement.
 **Acceptance Criteria:**
 
 **Given** j'accède au CLI depuis mon poste de travail,
-**When** j'exécute `data-guard-cli verify --bucket myapp`,
+**When** j'exécute `dataangel-cli verify --bucket myapp`,
 **Then** je vois l'état actuel des backups dans S3,
 **And** je vois si des restaurations sont nécessaires.
 
@@ -346,6 +346,6 @@ Outils de diagnostic pour résoudre les problèmes manuellement.
 **Acceptance Criteria:**
 
 **Given** un lock S3 est bloqué,
-**When** j'exécute `data-guard-cli force-release-lock --bucket myapp`,
+**When** j'exécute `dataangel-cli force-release-lock --bucket myapp`,
 **Then** le lock est libéré immédiatement,
 **And** le système peut reprendre son fonctionnement.

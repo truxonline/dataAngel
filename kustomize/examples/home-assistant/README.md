@@ -18,7 +18,7 @@ Exemple d'intégration du component data-guard pour Home Assistant.
 Le `kustomization.yaml` utilise **strategic merge patches** pour override:
 - `volumeMount.name`: `config` (au lieu de `data`)
 - `volumeMount.mountPath`: `/config` (au lieu de `/data`)
-- `secret name`: `home-assistant-infisical-secret` (au lieu de `data-guard-credentials`)
+- `secret name`: `home-assistant-infisical-secret` (au lieu de `dataangel-credentials`)
 
 Pattern stable par **nom** (`name: dataangel`, `name: config`), pas par index.
 
@@ -99,12 +99,12 @@ Pour activer la découverte automatique par Prometheus, ajoutez le component mon
 # kustomization.yaml
 components:
   - ../../components/data-guard
-  - ../../components/data-guard-monitoring  # PodMonitor pour Prometheus
+  - ../../components/dataangel-monitoring  # PodMonitor pour Prometheus
 ```
 
 **Prérequis**: Prometheus Operator installé (CRD `monitoring.coreos.com/v1`).
 
-Voir [data-guard-monitoring](../../components/data-guard-monitoring/README.md) pour plus de détails.
+Voir [dataangel-monitoring](../../components/dataangel-monitoring/README.md) pour plus de détails.
 
 ## Notes importantes
 

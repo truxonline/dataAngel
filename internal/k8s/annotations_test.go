@@ -6,7 +6,7 @@ import (
 
 func TestParseAnnotations_Disabled(t *testing.T) {
 	annotations := map[string]string{
-		"data-guard.io/enabled": "false",
+		"dataangel.io/enabled": "false",
 	}
 
 	config, err := ParseAnnotations(annotations)
@@ -21,8 +21,8 @@ func TestParseAnnotations_Disabled(t *testing.T) {
 
 func TestParseAnnotations_EnabledWithBucket(t *testing.T) {
 	annotations := map[string]string{
-		"data-guard.io/enabled": "true",
-		"data-guard.io/bucket":  "test-bucket",
+		"dataangel.io/enabled": "true",
+		"dataangel.io/bucket":  "test-bucket",
 	}
 
 	config, err := ParseAnnotations(annotations)
@@ -41,7 +41,7 @@ func TestParseAnnotations_EnabledWithBucket(t *testing.T) {
 
 func TestParseAnnotations_MissingBucket(t *testing.T) {
 	annotations := map[string]string{
-		"data-guard.io/enabled": "true",
+		"dataangel.io/enabled": "true",
 	}
 
 	_, err := ParseAnnotations(annotations)
@@ -52,12 +52,12 @@ func TestParseAnnotations_MissingBucket(t *testing.T) {
 
 func TestParseAnnotations_WithPaths(t *testing.T) {
 	annotations := map[string]string{
-		"data-guard.io/enabled":      "true",
-		"data-guard.io/bucket":       "test-bucket",
-		"data-guard.io/sqlite-paths": "/data/app.db,/data/other.db",
-		"data-guard.io/fs-paths":     "/data/config.yaml,/data/secrets.yaml",
-		"data-guard.io/s3-endpoint":  "https://minio.local",
-		"data-guard.io/full-logs":    "true",
+		"dataangel.io/enabled":      "true",
+		"dataangel.io/bucket":       "test-bucket",
+		"dataangel.io/sqlite-paths": "/data/app.db,/data/other.db",
+		"dataangel.io/fs-paths":     "/data/config.yaml,/data/secrets.yaml",
+		"dataangel.io/s3-endpoint":  "https://minio.local",
+		"dataangel.io/full-logs":    "true",
 	}
 
 	config, err := ParseAnnotations(annotations)

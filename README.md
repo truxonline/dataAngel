@@ -2,6 +2,8 @@
 
 > **AI-Generated Software** — This project was designed and produced by artificial intelligence (Claude / Anthropic). It is provided **as-is, with absolutely no warranty**. Use at your own risk.
 
+> **⚠️ BREAKING CHANGE (v0.4.0)**: Renamed `data-guard.io` → `dataangel.io` for consistency. See [MIGRATION.md](./MIGRATION.md) for upgrade steps.
+
 ---
 
 ## What is dataAngel?
@@ -95,9 +97,9 @@ kind: Pod
 metadata:
   name: myapp
   annotations:
-    data-guard.io/bucket: "my-backup-bucket"
-    data-guard.io/sqlite-paths: "/data/app.db"
-    data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+    dataangel.io/bucket: "my-backup-bucket"
+    dataangel.io/sqlite-paths: "/data/app.db"
+    dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
 spec:
   initContainers:
   - name: data-guard-init
@@ -107,24 +109,24 @@ spec:
     - name: DATA_GUARD_BUCKET
       valueFrom:
         fieldRef:
-          fieldPath: metadata.annotations['data-guard.io/bucket']
+          fieldPath: metadata.annotations['dataangel.io/bucket']
     - name: DATA_GUARD_SQLITE_PATHS
       valueFrom:
         fieldRef:
-          fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+          fieldPath: metadata.annotations['dataangel.io/sqlite-paths']
     - name: DATA_GUARD_S3_ENDPOINT
       valueFrom:
         fieldRef:
-          fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+          fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
     - name: AWS_ACCESS_KEY_ID
       valueFrom:
         secretKeyRef:
-          name: data-guard-credentials
+          name: dataangel-credentials
           key: access-key
     - name: AWS_SECRET_ACCESS_KEY
       valueFrom:
         secretKeyRef:
-          name: data-guard-credentials
+          name: dataangel-credentials
           key: secret-key
     volumeMounts:
     - name: data
@@ -213,14 +215,14 @@ Metrics are **optional** and controlled by annotation:
 ```yaml
 # Enable metrics (production)
 annotations:
-  data-guard.io/metrics-enabled: "true"
+  dataangel.io/metrics-enabled: "true"
 
 # Disable metrics (dev/CI)
 annotations:
-  data-guard.io/metrics-enabled: "false"
+  dataangel.io/metrics-enabled: "false"
 ```
 
-For Prometheus Operator auto-discovery, use the **data-guard-monitoring** component (see [kustomize/components/data-guard-monitoring](./kustomize/components/data-guard-monitoring/README.md)).
+For Prometheus Operator auto-discovery, use the **dataangel-monitoring** component (see [kustomize/components/dataangel-monitoring](./kustomize/components/dataangel-monitoring/README.md)).
 
 **Note:** MinIO/custom S3 endpoints are fully supported. See [issue #1](https://github.com/truxonline/dataAngel/issues/1) for implementation details.
 

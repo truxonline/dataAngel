@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: data-guard-cli <command> [args]")
+		fmt.Fprintln(os.Stderr, "Usage: dataangel-cli <command> [args]")
 		fmt.Fprintln(os.Stderr, "Commands: verify, force-release-lock")
 		os.Exit(1)
 	}

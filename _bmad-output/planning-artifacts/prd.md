@@ -152,7 +152,7 @@ Data-Guard est un composant Kubernetes qui protège automatiquement les données
 **User**: Cluster Operator
 **Context**: Tu suspectes un problème ou veut vérifier l'état
 **Flow**:
-1. Tu lances le CLI: `data-guard-cli verify --bucket myapp`
+1. Tu lances le CLI: `dataangel-cli verify --bucket myapp`
 2. Tu check les metrics Prometheus
 3. Tu vérifies les logs
 4. Si tout OK → rien à faire

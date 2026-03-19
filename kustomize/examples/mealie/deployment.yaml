@@ -13,14 +13,14 @@ spec:
       labels:
         app: mealie
       annotations:
-        data-guard.io/bucket: "vixens-backups"
-        data-guard.io/sqlite-paths: "/app/data/mealie.db"
-        data-guard.io/fs-paths: "/app/data/recipes,/app/data/user-files"
-        data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
-        data-guard.io/deployment-name: "mealie"
-        data-guard.io/lock-ttl: "60s"
-        data-guard.io/rclone-interval: "300s"
-        data-guard.io/metrics-enabled: "true"
+        dataangel.io/bucket: "vixens-backups"
+        dataangel.io/sqlite-paths: "/app/data/mealie.db"
+        dataangel.io/fs-paths: "/app/data/recipes,/app/data/user-files"
+        dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        dataangel.io/deployment-name: "mealie"
+        dataangel.io/lock-ttl: "60s"
+        dataangel.io/rclone-interval: "300s"
+        dataangel.io/metrics-enabled: "true"
     spec:
       # CRITIQUE: runAsUser doit matcher l'UID de l'app Mealie (911)
       # pour que init/sidecar puissent accéder aux fichiers

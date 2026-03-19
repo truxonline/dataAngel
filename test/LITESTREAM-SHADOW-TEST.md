@@ -75,8 +75,8 @@ Deploy an app with both SQLite and filesystem paths on the same volume:
 
 ```yaml
 annotations:
-  data-guard.io/sqlite-paths: "/app/data/mealie.db"
-  data-guard.io/fs-paths: "/app/data"  # Same volume as SQLite
+  dataangel.io/sqlite-paths: "/app/data/mealie.db"
+  dataangel.io/fs-paths: "/app/data"  # Same volume as SQLite
 ```
 
 **Expected:** Litestream creates `.mealie.db-litestream/` in `/app/data/`

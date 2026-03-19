@@ -56,7 +56,7 @@ Projet DataGuard - Système de protection de données pour applications Kubernet
   - `cmd/sidecar-rclone`
   - `cmd/init`
   - `cmd/cli`
-  - `cmd/data-guard-cli`
+  - `cmd/dataangel-cli`
   - `internal/validation`
   - `internal/lock`
   - `internal/metrics`
@@ -81,7 +81,7 @@ project/
 │   ├── sidecar-rclone/      # Sync filesystem avec Rclone
 │   ├── init/                # Init container avec restore pipeline
 │   ├── cli/                 # Outils CLI de troubleshooting (library)
-│   └── data-guard-cli/      # Entry point CLI
+│   └── dataangel-cli/      # Entry point CLI
 ├── internal/
 │   ├── validation/          # Validation SQLite/YAML
 │   ├── lock/                # Locks distribués S3
@@ -131,8 +131,8 @@ cd cmd/init && go build -o /tmp/init-container main.go restore.go
 DATA_GUARD_BUCKET=myapp DATA_GUARD_PATH=backup/data.db DATA_GUARD_LOCAL_PATH=/tmp/data.db DATA_GUARD_CHECKSUM=<checksum> /tmp/init-container
 
 # Tester le CLI
-cd cmd/data-guard-cli && go build -o /tmp/data-guard-cli main.go
-/tmp/data-guard-cli verify --bucket myapp
+cd cmd/dataangel-cli && go build -o /tmp/dataangel-cli main.go
+/tmp/dataangel-cli verify --bucket myapp
 
 # Vérifier le statut du sprint
 cat _bmad-output/implementation-artifacts/sprint-status.yaml

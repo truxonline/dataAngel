@@ -37,7 +37,7 @@
 - `cmd/`: Command-line tools and entry points
   - `cmd/init/`: Init container for Kubernetes
   - `cmd/cli/`: CLI library package
-  - `cmd/data-guard-cli/`: CLI entry point
+  - `cmd/dataangel-cli/`: CLI entry point
   - `cmd/sidecar-litestream/`: Litestream sidecar
   - `cmd/sidecar-rclone/`: Rclone sidecar
 - `internal/`: Internal packages
@@ -50,7 +50,7 @@
 
 ### Module Dependencies
 ```
-cmd/data-guard-cli
+cmd/dataangel-cli
   ├── cmd/cli
   │   └── pkg/s3
   └── pkg/s3

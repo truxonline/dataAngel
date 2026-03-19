@@ -30,16 +30,16 @@
 ### 4. **1.4: CLI verify backup state** ✅
 - Implémentation de `VerifyBackupState()`, `FormatBackupList()`
 - Tests TDD complets (6 tests passants)
-- CLI entry point (`cmd/data-guard-cli/main.go`)
+- CLI entry point (`cmd/dataangel-cli/main.go`)
 - Commands: `verify`, `force-release-lock`
 
 ## Annotations Supportées
-- `data-guard.io/enabled` (requis) - Activer DataGuard
-- `data-guard.io/bucket` (requis) - Bucket S3
-- `data-guard.io/sqlite-paths` (optionnel) - Chemins DB
-- `data-guard.io/fs-paths` (optionnel) - Chemins répertoires
-- `data-guard.io/s3-endpoint` (optionnel) - Override endpoint S3
-- `data-guard.io/full-logs` (optionnel) - Logging verbose
+- `dataangel.io/enabled` (requis) - Activer DataGuard
+- `dataangel.io/bucket` (requis) - Bucket S3
+- `dataangel.io/sqlite-paths` (optionnel) - Chemins DB
+- `dataangel.io/fs-paths` (optionnel) - Chemins répertoires
+- `dataangel.io/s3-endpoint` (optionnel) - Override endpoint S3
+- `dataangel.io/full-logs` (optionnel) - Logging verbose
 
 ## Exemple d'Utilisation
 ```yaml
@@ -48,10 +48,10 @@ kind: Deployment
 metadata:
   name: my-app
   annotations:
-    data-guard.io/enabled: "true"
-    data-guard.io/bucket: "my-bucket"
-    data-guard.io/sqlite-paths: "/data/app.db"
-    data-guard.io/fs-paths: "/config/settings.yaml"
+    dataangel.io/enabled: "true"
+    dataangel.io/bucket: "my-bucket"
+    dataangel.io/sqlite-paths: "/data/app.db"
+    dataangel.io/fs-paths: "/config/settings.yaml"
 spec:
   template:
     spec:

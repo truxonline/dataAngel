@@ -15,7 +15,7 @@ Ce document décrit comment tester les 3 modes de restore après implémentation
 ### 1. Créer le secret AWS
 
 ```bash
-kubectl create secret generic data-guard-credentials \
+kubectl create secret generic dataangel-credentials \
   --from-literal=access-key=YOUR_MINIO_ACCESS_KEY \
   --from-literal=secret-key=YOUR_MINIO_SECRET_KEY \
   -n default
@@ -80,9 +80,9 @@ spec:
       labels:
         app: test-sqlite-only
       annotations:
-        data-guard.io/bucket: "dataangel-test"
-        data-guard.io/sqlite-paths: "/data/test.db"
-        data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        dataangel.io/bucket: "dataangel-test"
+        dataangel.io/sqlite-paths: "/data/test.db"
+        dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
     spec:
       initContainers:
       - name: data-guard-init
@@ -92,24 +92,24 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_SQLITE_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+              fieldPath: metadata.annotations['dataangel.io/sqlite-paths']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         - name: DATA_GUARD_FULL_LOGS
           value: "true"
@@ -188,9 +188,9 @@ spec:
       labels:
         app: test-fs-only
       annotations:
-        data-guard.io/bucket: "dataangel-test"
-        data-guard.io/fs-paths: "/config"
-        data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        dataangel.io/bucket: "dataangel-test"
+        dataangel.io/fs-paths: "/config"
+        dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
     spec:
       initContainers:
       - name: data-guard-init
@@ -200,24 +200,24 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_FS_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/fs-paths']
+              fieldPath: metadata.annotations['dataangel.io/fs-paths']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         - name: DATA_GUARD_FULL_LOGS
           value: "true"
@@ -286,10 +286,10 @@ spec:
       labels:
         app: test-combined
       annotations:
-        data-guard.io/bucket: "dataangel-test"
-        data-guard.io/sqlite-paths: "/data/test.db"
-        data-guard.io/fs-paths: "/config"
-        data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        dataangel.io/bucket: "dataangel-test"
+        dataangel.io/sqlite-paths: "/data/test.db"
+        dataangel.io/fs-paths: "/config"
+        dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
     spec:
       initContainers:
       - name: data-guard-init
@@ -299,28 +299,28 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_SQLITE_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+              fieldPath: metadata.annotations['dataangel.io/sqlite-paths']
         - name: DATA_GUARD_FS_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/fs-paths']
+              fieldPath: metadata.annotations['dataangel.io/fs-paths']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         - name: DATA_GUARD_FULL_LOGS
           value: "true"
@@ -549,7 +549,7 @@ Au premier démarrage (bucket vide, pas d'historique FS), `rclone copy` pouvait 
 # 2. Déployer avec FS_PATHS
 kubectl apply -f test-fs-only.yaml
 # annotations:
-#   data-guard.io/fs-paths: "/config"
+#   dataangel.io/fs-paths: "/config"
 
 # 3. Attendre max 60s (timeout)
 kubectl wait --for=condition=Ready pod -l app=test-fs-only --timeout=90s
@@ -589,7 +589,7 @@ Les métriques étaient exposées mais toujours à 0, même en cas d'erreur.
 ```bash
 # 1. Déployer avec métriques activées
 kubectl apply -k kustomize/examples/mealie/
-# annotation: data-guard.io/metrics-enabled: "true"
+# annotation: dataangel.io/metrics-enabled: "true"
 
 # 2. Attendre quelques syncs rclone (~2min)
 sleep 120
@@ -733,10 +733,10 @@ dbs:
 Vérifier que le mode **sans** endpoint custom fonctionne toujours:
 
 ```yaml
-# Sans data-guard.io/s3-endpoint annotation
+# Sans dataangel.io/s3-endpoint annotation
 annotations:
-  data-guard.io/bucket: "my-bucket"
-  data-guard.io/sqlite-paths: "/data/test.db"
+  dataangel.io/bucket: "my-bucket"
+  dataangel.io/sqlite-paths: "/data/test.db"
   # Pas de s3-endpoint → utilise AWS S3 standard
 ```
 
@@ -759,10 +759,10 @@ kind: Deployment
 metadata:
   name: test-metrics-enabled
   annotations:
-    data-guard.io/bucket: "dataangel-test"
-    data-guard.io/sqlite-paths: "/data/test.db"
-    data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
-    data-guard.io/metrics-enabled: "true"  # Activer métriques
+    dataangel.io/bucket: "dataangel-test"
+    dataangel.io/sqlite-paths: "/data/test.db"
+    dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+    dataangel.io/metrics-enabled: "true"  # Activer métriques
 spec:
   # ... (spec identique à test-sqlite-only)
 ```
@@ -795,10 +795,10 @@ kind: Deployment
 metadata:
   name: test-metrics-disabled
   annotations:
-    data-guard.io/bucket: "dataangel-test"
-    data-guard.io/sqlite-paths: "/data/test.db"
-    data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
-    data-guard.io/metrics-enabled: "false"  # Désactiver métriques
+    dataangel.io/bucket: "dataangel-test"
+    dataangel.io/sqlite-paths: "/data/test.db"
+    dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+    dataangel.io/metrics-enabled: "false"  # Désactiver métriques
 spec:
   # ... (spec identique)
 ```
@@ -831,7 +831,7 @@ curl http://localhost:9090/metrics
 # kustomization.yaml
 components:
   - ../../components/data-guard
-  - ../../components/data-guard-monitoring  # PodMonitor pour découverte
+  - ../../components/dataangel-monitoring  # PodMonitor pour découverte
 ```
 
 **Validation**:
@@ -880,6 +880,6 @@ Une fois tous les tests passés:
 
 ```bash
 kubectl delete deployment test-sqlite-only test-fs-only test-combined
-kubectl delete secret data-guard-credentials
+kubectl delete secret dataangel-credentials
 mc rb --force minio/dataangel-test
 ```

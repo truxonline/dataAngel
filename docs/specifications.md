@@ -278,10 +278,10 @@ flowchart TB
        
        subgraph "Metadata"
            ANNOT["Annotations
-           data-guard.io/enabled: true
-           data-guard.io/bucket: app-name
-           data-guard.io/sqlite-paths: /data/db
-           data-guard.io/fs-paths: /config"]
+           dataangel.io/enabled: true
+           dataangel.io/bucket: app-name
+           dataangel.io/sqlite-paths: /data/db
+           dataangel.io/fs-paths: /config"]
        end
        
        subgraph "Init Phase"
@@ -530,7 +530,7 @@ Default
 
 Description
 
-data-guard.io/enabled
+dataangel.io/enabled
 
 Yes
 
@@ -538,7 +538,7 @@ Yes
 
 Must be "true" to activate
 
-data-guard.io/bucket
+dataangel.io/bucket
 
 Yes
 
@@ -546,7 +546,7 @@ Yes
 
 S3 bucket/prefix for this app
 
-data-guard.io/sqlite-paths
+dataangel.io/sqlite-paths
 
 No
 
@@ -554,7 +554,7 @@ No
 
 Comma-separated list of DB paths
 
-data-guard.io/fs-paths
+dataangel.io/fs-paths
 
 No
 
@@ -562,7 +562,7 @@ No
 
 Comma-separated list of directory paths
 
-data-guard.io/s3-endpoint
+dataangel.io/s3-endpoint
 
 No
 
@@ -570,7 +570,7 @@ From env
 
 Override S3 endpoint URL
 
-data-guard.io/full-logs
+dataangel.io/full-logs
 
 No
 
@@ -1341,7 +1341,7 @@ def cmd_force_release_lock(args):
    print("Lock released")
 
 def main():
-   parser = argparse.ArgumentParser(prog='data-guard-cli')
+   parser = argparse.ArgumentParser(prog='dataangel-cli')
    subparsers = parser.add_subparsers(dest='command')
    
    # restore
@@ -1492,15 +1492,15 @@ kubectl port-forward pod/app-xxx 9090:9090 → curl localhost:9090/metrics
 
 Force restore
 
-kubectl exec -it pod/app-xxx -c data-guard -- data-guard-cli restore --bucket X --generation N --db-path /config/db
+kubectl exec -it pod/app-xxx -c data-guard -- dataangel-cli restore --bucket X --generation N --db-path /config/db
 
 Check lock status
 
-kubectl exec -it pod/app-xxx -c data-guard -- data-guard-cli check-lock --bucket X
+kubectl exec -it pod/app-xxx -c data-guard -- dataangel-cli check-lock --bucket X
 
 Release orphaned lock
 
-kubectl exec -it pod/app-xxx -c data-guard -- data-guard-cli force-release-lock --bucket X --confirm
+kubectl exec -it pod/app-xxx -c data-guard -- dataangel-cli force-release-lock --bucket X --confirm
 
 6.2 Troubleshooting Scenarios
 
@@ -1515,11 +1515,11 @@ kubectl exec -it pod/app-xxx -c data-guard-init -- \
 
 # 3. Check lock status
 kubectl exec -it pod/app-xxx -c data-guard-init -- \
-   data-guard-cli check-lock --bucket myapp
+   dataangel-cli check-lock --bucket myapp
 
 # 4. Force release if orphaned (after verifying no other pod is running)
 kubectl exec -it pod/app-xxx -c data-guard-init -- \
-   data-guard-cli force-release-lock --bucket myapp --confirm
+   dataangel-cli force-release-lock --bucket myapp --confirm
 
 Corruption detected (metrics alert)
 
@@ -1534,7 +1534,7 @@ kubectl scale deployment/homeassistant --replicas=0
 
 # 4. Manual restore from specific generation if needed
 kubectl run debug --rm -it --image=data-guard -- \
-   data-guard-cli restore --bucket homeassistant --generation 5 \
+   dataangel-cli restore --bucket homeassistant --generation 5 \
    --db-path /tmp/restore.db
 
 # 5. Copy restored DB to PVC and restart
@@ -2233,11 +2233,11 @@ patches:
      - op: add
        path: /spec/template/metadata/annotations
        value:
-         data-guard.io/enabled: "true"
-         data-guard.io/bucket: "homeassistant-prod"
-         data-guard.io/sqlite-paths: "/config/home-assistant_v2.db"
-         data-guard.io/fs-paths: "/config/configuration.yaml,/config/automations.yaml,/config/scripts.yaml"
-         data-guard.io/full-logs: "false"
+         dataangel.io/enabled: "true"
+         dataangel.io/bucket: "homeassistant-prod"
+         dataangel.io/sqlite-paths: "/config/home-assistant_v2.db"
+         dataangel.io/fs-paths: "/config/configuration.yaml,/config/automations.yaml,/config/scripts.yaml"
+         dataangel.io/full-logs: "false"
 
 
 

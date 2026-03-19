@@ -57,7 +57,7 @@ Translate acceptance criteria into a prioritized, level-appropriate test plan fo
 | # | Acceptance Criterion | Test Scenario | Type | Risk |
 |---|---------------------|---------------|------|------|
 | 1 | CLI accessible from workstation | Verify CLI command structure | Unit | Low |
-| 2 | Execute `data-guard-cli verify --bucket myapp` | Verify command parsing | Unit | Medium |
+| 2 | Execute `dataangel-cli verify --bucket myapp` | Verify command parsing | Unit | Medium |
 | 3 | See current S3 backup state | Verify S3 status display | Integration | High |
 | 4 | See if restorations are needed | Verify restore status display | Integration | High |
 | 5 | Connect to S3 | Verify S3 connection | Integration | Medium |
@@ -159,7 +159,7 @@ import (
 func TestVerifyCommand_Parsing(t *testing.T) {
 	t.Skip("TODO: Implement command parsing")
 
-	// Test command: data-guard-cli verify --bucket myapp
+	// Test command: dataangel-cli verify --bucket myapp
 	args := []string{"verify", "--bucket", "myapp"}
 	_ = args
 }
@@ -167,7 +167,7 @@ func TestVerifyCommand_Parsing(t *testing.T) {
 func TestVerifyCommand_MissingBucket(t *testing.T) {
 	t.Skip("TODO: Handle missing bucket")
 
-	// Test command: data-guard-cli verify
+	// Test command: dataangel-cli verify
 	args := []string{"verify"}
 	_ = args
 }

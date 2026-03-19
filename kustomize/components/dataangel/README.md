@@ -32,15 +32,15 @@ kind: Deployment
 metadata:
   name: myapp
   annotations:
-    data-guard.io/bucket: "my-backup-bucket"              # REQUIS
-    data-guard.io/deployment-name: "myapp"                # REQUIS (v0.3.0+, pour distributed lock)
-    data-guard.io/sqlite-paths: "/data/app.db"            # Optionnel (si SQLite)
-    data-guard.io/fs-paths: "/config"                     # Optionnel (si filesystem)
-    data-guard.io/s3-endpoint: "http://minio:9000"        # Optionnel (défaut: AWS S3)
-    data-guard.io/aws-region: "us-east-1"                 # Optionnel (auto: us-east-1 si s3-endpoint set)
-    data-guard.io/lock-ttl: "60s"                         # Optionnel (défaut: 60s)
-    data-guard.io/rclone-interval: "300s"                 # Optionnel (défaut: 60s)
-    data-guard.io/metrics-enabled: "true"                 # Optionnel (défaut: true)
+    dataangel.io/bucket: "my-backup-bucket"              # REQUIS
+    dataangel.io/deployment-name: "myapp"                # REQUIS (v0.3.0+, pour distributed lock)
+    dataangel.io/sqlite-paths: "/data/app.db"            # Optionnel (si SQLite)
+    dataangel.io/fs-paths: "/config"                     # Optionnel (si filesystem)
+    dataangel.io/s3-endpoint: "http://minio:9000"        # Optionnel (défaut: AWS S3)
+    dataangel.io/aws-region: "us-east-1"                 # Optionnel (auto: us-east-1 si s3-endpoint set)
+    dataangel.io/lock-ttl: "60s"                         # Optionnel (défaut: 60s)
+    dataangel.io/rclone-interval: "300s"                 # Optionnel (défaut: 60s)
+    dataangel.io/metrics-enabled: "true"                 # Optionnel (défaut: true)
 spec:
   template:
     spec:
@@ -129,12 +129,12 @@ spec:
 
 ## Secret AWS requis
 
-⚠️ **Le component utilise par défaut un secret nommé `data-guard-credentials`.**
+⚠️ **Le component utilise par défaut un secret nommé `dataangel-credentials`.**
 
 Créez-le dans le namespace de votre app:
 
 ```bash
-kubectl create secret generic data-guard-credentials \
+kubectl create secret generic dataangel-credentials \
   --from-literal=access-key=YOUR_ACCESS_KEY \
   --from-literal=secret-key=YOUR_SECRET_KEY
 ```
@@ -216,20 +216,20 @@ Pure kustomize (sans webhook) ne peut pas lire dynamiquement des annotations pou
 ### SQLite seul (Litestream)
 ```yaml
 annotations:
-  data-guard.io/sqlite-paths: "/data/db.sqlite"
+  dataangel.io/sqlite-paths: "/data/db.sqlite"
 ```
 
 ### Filesystem seul (Rclone)
 ```yaml
 annotations:
-  data-guard.io/fs-paths: "/config,/data/uploads"
+  dataangel.io/fs-paths: "/config,/data/uploads"
 ```
 
 ### Les deux ensemble
 ```yaml
 annotations:
-  data-guard.io/sqlite-paths: "/data/app.db"
-  data-guard.io/fs-paths: "/config"
+  dataangel.io/sqlite-paths: "/data/app.db"
+  dataangel.io/fs-paths: "/config"
 ```
 
 ## Métriques Prometheus
@@ -241,31 +241,31 @@ Le sidecar peut exposer des métriques sur le port `9090`. Cette fonctionnalité
 **Production** (avec Prometheus):
 ```yaml
 annotations:
-  data-guard.io/metrics-enabled: "true"  # Sidecar démarre le metrics server
+  dataangel.io/metrics-enabled: "true"  # Sidecar démarre le metrics server
 ```
 
 **Dev/CI** (économie resources):
 ```yaml
 annotations:
-  data-guard.io/metrics-enabled: "false"  # Sidecar skip le metrics server
+  dataangel.io/metrics-enabled: "false"  # Sidecar skip le metrics server
 ```
 
 **Note**: Si l'annotation est absente, le comportement par défaut est `"true"` (backward compatibility).
 
 ### Découverte automatique par Prometheus
 
-Pour que Prometheus découvre automatiquement les métriques, utilisez le component **data-guard-monitoring** (opt-in):
+Pour que Prometheus découvre automatiquement les métriques, utilisez le component **dataangel-monitoring** (opt-in):
 
 ```yaml
 # kustomization.yaml
 components:
   - ../../components/data-guard            # Base component
-  - ../../components/data-guard-monitoring # PodMonitor pour Prometheus discovery
+  - ../../components/dataangel-monitoring # PodMonitor pour Prometheus discovery
 ```
 
-Ce component ajoute un **PodMonitor** (Prometheus Operator) qui scrape automatiquement les pods avec `data-guard.io/metrics-enabled: "true"`.
+Ce component ajoute un **PodMonitor** (Prometheus Operator) qui scrape automatiquement les pods avec `dataangel.io/metrics-enabled: "true"`.
 
-**Voir**: [data-guard-monitoring component](../data-guard-monitoring/README.md)
+**Voir**: [dataangel-monitoring component](../dataangel-monitoring/README.md)
 
 ### Debug manuel des métriques
 

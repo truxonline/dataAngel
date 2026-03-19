@@ -21,7 +21,7 @@ Créer le secret **dans le même namespace** que votre application:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: data-guard-credentials
+  name: dataangel-credentials
   namespace: default
 type: Opaque
 stringData:
@@ -49,9 +49,9 @@ spec:
       labels:
         app: my-application
       annotations:
-        data-guard.io/bucket: "my-backup-bucket"
-        data-guard.io/sqlite-paths: "/data/app.db"
-        data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        dataangel.io/bucket: "my-backup-bucket"
+        dataangel.io/sqlite-paths: "/data/app.db"
+        dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
     spec:
       initContainers:
       - name: data-guard-init
@@ -61,24 +61,24 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_SQLITE_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+              fieldPath: metadata.annotations['dataangel.io/sqlite-paths']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         volumeMounts:
         - name: data
@@ -98,24 +98,24 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_SQLITE_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+              fieldPath: metadata.annotations['dataangel.io/sqlite-paths']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         - name: DATA_GUARD_METRICS_PORT
           value: "9090"
@@ -142,10 +142,10 @@ spec:
   template:
     metadata:
       annotations:
-        data-guard.io/bucket: "my-backup-bucket"
-        data-guard.io/fs-paths: "/config,/data/uploads"
-        data-guard.io/rclone-interval: "300s"
-        data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        dataangel.io/bucket: "my-backup-bucket"
+        dataangel.io/fs-paths: "/config,/data/uploads"
+        dataangel.io/rclone-interval: "300s"
+        dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
     spec:
       initContainers:
       - name: data-guard-init
@@ -155,24 +155,24 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_FS_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/fs-paths']
+              fieldPath: metadata.annotations['dataangel.io/fs-paths']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         volumeMounts:
         - name: data
@@ -196,28 +196,28 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_FS_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/fs-paths']
+              fieldPath: metadata.annotations['dataangel.io/fs-paths']
         - name: DATA_GUARD_RCLONE_INTERVAL
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/rclone-interval']
+              fieldPath: metadata.annotations['dataangel.io/rclone-interval']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         - name: DATA_GUARD_METRICS_PORT
           value: "9090"
@@ -248,10 +248,10 @@ spec:
   template:
     metadata:
       annotations:
-        data-guard.io/bucket: "my-backup-bucket"
-        data-guard.io/sqlite-paths: "/data/app.db"
-        data-guard.io/fs-paths: "/config"
-        data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+        dataangel.io/bucket: "my-backup-bucket"
+        dataangel.io/sqlite-paths: "/data/app.db"
+        dataangel.io/fs-paths: "/config"
+        dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
     spec:
       initContainers:
       - name: data-guard-init
@@ -261,28 +261,28 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_SQLITE_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+              fieldPath: metadata.annotations['dataangel.io/sqlite-paths']
         - name: DATA_GUARD_FS_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/fs-paths']
+              fieldPath: metadata.annotations['dataangel.io/fs-paths']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         volumeMounts:
         - name: data
@@ -306,28 +306,28 @@ spec:
         - name: DATA_GUARD_BUCKET
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/bucket']
+              fieldPath: metadata.annotations['dataangel.io/bucket']
         - name: DATA_GUARD_SQLITE_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/sqlite-paths']
+              fieldPath: metadata.annotations['dataangel.io/sqlite-paths']
         - name: DATA_GUARD_FS_PATHS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/fs-paths']
+              fieldPath: metadata.annotations['dataangel.io/fs-paths']
         - name: DATA_GUARD_S3_ENDPOINT
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['data-guard.io/s3-endpoint']
+              fieldPath: metadata.annotations['dataangel.io/s3-endpoint']
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: data-guard-credentials
+              name: dataangel-credentials
               key: secret-key
         - name: DATA_GUARD_METRICS_PORT
           value: "9090"
@@ -353,12 +353,12 @@ spec:
 
 | Annotation | Description | Required | Default |
 |------------|-------------|----------|---------|
-| `data-guard.io/bucket` | Nom du bucket S3 | **Yes** | - |
-| `data-guard.io/sqlite-paths` | Chemins SQLite (comma-separated) | No* | - |
-| `data-guard.io/fs-paths` | Chemins filesystem (comma-separated) | No* | - |
-| `data-guard.io/s3-endpoint` | URL S3 (pour MinIO) | No | AWS S3 |
-| `data-guard.io/rclone-interval` | Intervalle rclone sync | No | `60s` |
-| `data-guard.io/full-logs` | Logs détaillés | No | `false` |
+| `dataangel.io/bucket` | Nom du bucket S3 | **Yes** | - |
+| `dataangel.io/sqlite-paths` | Chemins SQLite (comma-separated) | No* | - |
+| `dataangel.io/fs-paths` | Chemins filesystem (comma-separated) | No* | - |
+| `dataangel.io/s3-endpoint` | URL S3 (pour MinIO) | No | AWS S3 |
+| `dataangel.io/rclone-interval` | Intervalle rclone sync | No | `60s` |
+| `dataangel.io/full-logs` | Logs détaillés | No | `false` |
 
 *Au moins **un** de `sqlite-paths` ou `fs-paths` doit être défini.
 
@@ -366,7 +366,7 @@ spec:
 
 ```bash
 # 1. Créer le secret AWS
-kubectl create secret generic data-guard-credentials \
+kubectl create secret generic dataangel-credentials \
   --from-literal=access-key=minioadmin \
   --from-literal=secret-key=minioadmin \
   -n default
@@ -435,7 +435,7 @@ metadata:
 
 ## ✅ Checklist
 
-- [ ] Secret `data-guard-credentials` créé dans le namespace
+- [ ] Secret `dataangel-credentials` créé dans le namespace
 - [ ] Annotations placées dans `spec.template.metadata.annotations`
 - [ ] Au moins un de `sqlite-paths` ou `fs-paths` défini
 - [ ] Volume mount configuré correctement

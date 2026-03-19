@@ -68,7 +68,7 @@ func (r *RcloneRunner) syncOnce(ctx context.Context) error {
 ```yaml
 # deployment.yaml
 annotations:
-  data-guard.io/s3-endpoint: "http://invalid-endpoint:9000"
+  dataangel.io/s3-endpoint: "http://invalid-endpoint:9000"
 ```
 
 **Expected behavior:**
@@ -136,7 +136,7 @@ kubectl logs -f <pod> -c dataangel | grep -E "(timeout|killed|context deadline)"
 
 ```yaml
 annotations:
-  data-guard.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
+  dataangel.io/s3-endpoint: "http://minio.minio.svc.cluster.local:9000"
 ```
 
 **Expected behavior:**

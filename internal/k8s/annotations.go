@@ -21,11 +21,11 @@ type DataGuardConfig struct {
 func ParseAnnotations(annotations map[string]string) (*DataGuardConfig, error) {
 	config := &DataGuardConfig{}
 
-	// data-guard.io/enabled (requis)
-	if enabledStr, ok := annotations["data-guard.io/enabled"]; ok {
+	// dataangel.io/enabled (requis)
+	if enabledStr, ok := annotations["dataangel.io/enabled"]; ok {
 		enabled, err := strconv.ParseBool(enabledStr)
 		if err != nil {
-			return nil, fmt.Errorf("valeur invalide pour data-guard.io/enabled: %w", err)
+			return nil, fmt.Errorf("valeur invalide pour dataangel.io/enabled: %w", err)
 		}
 		config.Enabled = enabled
 	}
@@ -35,33 +35,33 @@ func ParseAnnotations(annotations map[string]string) (*DataGuardConfig, error) {
 		return config, nil
 	}
 
-	// data-guard.io/bucket (requis si activé)
-	if bucket, ok := annotations["data-guard.io/bucket"]; ok && bucket != "" {
+	// dataangel.io/bucket (requis si activé)
+	if bucket, ok := annotations["dataangel.io/bucket"]; ok && bucket != "" {
 		config.Bucket = bucket
 	} else {
-		return nil, fmt.Errorf("annotation data-guard.io/bucket est requise quand data-guard.io/enabled=true")
+		return nil, fmt.Errorf("annotation dataangel.io/bucket est requise quand dataangel.io/enabled=true")
 	}
 
-	// data-guard.io/s3-endpoint (optionnel)
-	if endpoint, ok := annotations["data-guard.io/s3-endpoint"]; ok && endpoint != "" {
+	// dataangel.io/s3-endpoint (optionnel)
+	if endpoint, ok := annotations["dataangel.io/s3-endpoint"]; ok && endpoint != "" {
 		config.S3Endpoint = endpoint
 	}
 
-	// data-guard.io/sqlite-paths (optionnel)
-	if pathsStr, ok := annotations["data-guard.io/sqlite-paths"]; ok && pathsStr != "" {
+	// dataangel.io/sqlite-paths (optionnel)
+	if pathsStr, ok := annotations["dataangel.io/sqlite-paths"]; ok && pathsStr != "" {
 		config.SqlitePaths = parseCSV(pathsStr)
 	}
 
-	// data-guard.io/fs-paths (optionnel)
-	if pathsStr, ok := annotations["data-guard.io/fs-paths"]; ok && pathsStr != "" {
+	// dataangel.io/fs-paths (optionnel)
+	if pathsStr, ok := annotations["dataangel.io/fs-paths"]; ok && pathsStr != "" {
 		config.FsPaths = parseCSV(pathsStr)
 	}
 
-	// data-guard.io/full-logs (optionnel)
-	if logsStr, ok := annotations["data-guard.io/full-logs"]; ok && logsStr != "" {
+	// dataangel.io/full-logs (optionnel)
+	if logsStr, ok := annotations["dataangel.io/full-logs"]; ok && logsStr != "" {
 		fullLogs, err := strconv.ParseBool(logsStr)
 		if err != nil {
-			return nil, fmt.Errorf("valeur invalide pour data-guard.io/full-logs: %w", err)
+			return nil, fmt.Errorf("valeur invalide pour dataangel.io/full-logs: %w", err)
 		}
 		config.FullLogs = fullLogs
 	}

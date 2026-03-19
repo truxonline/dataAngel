@@ -1,4 +1,4 @@
-# data-guard-monitoring Component
+# dataangel-monitoring Component
 
 Component optionnel pour activer la découverte automatique des métriques data-guard par Prometheus Operator.
 
@@ -6,7 +6,7 @@ Component optionnel pour activer la découverte automatique des métriques data-
 
 - Prometheus Operator installé (CRDs `monitoring.coreos.com/v1`)
 - Component `data-guard` déjà appliqué
-- Annotation `data-guard.io/metrics-enabled: "true"` sur les pods
+- Annotation `dataangel.io/metrics-enabled: "true"` sur les pods
 
 ## Ce que fait ce component
 
@@ -27,7 +27,7 @@ kind: Kustomization
 
 components:
   - ../../components/data-guard            # Base component
-  - ../../components/data-guard-monitoring # Monitoring opt-in
+  - ../../components/dataangel-monitoring # Monitoring opt-in
 
 resources:
   - deployment.yaml
@@ -43,9 +43,9 @@ spec:
   template:
     metadata:
       annotations:
-        data-guard.io/bucket: "my-bucket"
-        data-guard.io/sqlite-paths: "/data/app.db"
-        data-guard.io/metrics-enabled: "true"  # ← Requis pour monitoring
+        dataangel.io/bucket: "my-bucket"
+        dataangel.io/sqlite-paths: "/data/app.db"
+        dataangel.io/metrics-enabled: "true"  # ← Requis pour monitoring
 ```
 
 ### Environnement SANS Prometheus Operator (dev, CI)
@@ -63,7 +63,7 @@ resources:
 ```yaml
 metadata:
   annotations:
-    data-guard.io/metrics-enabled: "false"  # ← Désactive metrics server
+    dataangel.io/metrics-enabled: "false"  # ← Désactive metrics server
 ```
 
 ## Métriques exposées
@@ -157,7 +157,7 @@ kubectl get prometheus -n monitoring -o yaml | grep -A5 podMonitorSelector
 ### Dev/CI (économie resources)
 ```yaml
 annotations:
-  data-guard.io/metrics-enabled: "false"
+  dataangel.io/metrics-enabled: "false"
 
 # Pas de component monitoring
 ```
@@ -165,10 +165,10 @@ annotations:
 ### Prod (observabilité complète)
 ```yaml
 annotations:
-  data-guard.io/metrics-enabled: "true"
+  dataangel.io/metrics-enabled: "true"
 
 components:
-  - data-guard-monitoring  # PodMonitor discovery
+  - dataangel-monitoring  # PodMonitor discovery
 ```
 
 ## Voir aussi

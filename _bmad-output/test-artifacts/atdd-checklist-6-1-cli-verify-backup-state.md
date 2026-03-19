@@ -27,7 +27,7 @@ inputDocuments:
 ## Acceptance Criteria
 
 **Given** j'accède au CLI depuis mon poste de travail,
-**When** j'exécute `data-guard-cli verify --bucket myapp`,
+**When** j'exécute `dataangel-cli verify --bucket myapp`,
 **Then** je vois l'état actuel des backups dans S3,
 **And** je vois si des restaurations sont nécessaires.
 

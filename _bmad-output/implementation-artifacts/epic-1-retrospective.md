@@ -38,7 +38,7 @@ Epic 1 focused on establishing the initial foundation for DataGuard, including c
 - **Status**: Done
 - **Implementation**: S3 backup state verification, CLI entry point with command routing
 - **Tests**: 6 tests TDD passants
-- **Files**: `cmd/cli/verify.go`, `cmd/data-guard-cli/main.go`
+- **Files**: `cmd/cli/verify.go`, `cmd/dataangel-cli/main.go`
 - **Key Features**:
   - `VerifyBackupState` checks backup status in S3
   - `FormatBackupList` formats backup information
@@ -58,8 +58,8 @@ Epic 1 focused on establishing the initial foundation for DataGuard, including c
 ## Challenges & Solutions
 
 ### Challenge 1: Module Import Cycles
-- **Issue**: `cmd/cli` and `cmd/data-guard-cli` had import conflicts
-- **Solution**: Created separate `cmd/data-guard-cli` directory for main entry point
+- **Issue**: `cmd/cli` and `cmd/dataangel-cli` had import conflicts
+- **Solution**: Created separate `cmd/dataangel-cli` directory for main entry point
 
 ### Challenge 2: Checksum Calculation
 - **Issue**: Incorrect SHA256 checksums in tests

@@ -42,7 +42,7 @@ cp -r mealie/ my-app/
 cd my-app/
 
 # Modifier deployment.yaml:
-# - Ajuster annotations data-guard.io/* (IMPORTANT: deployment-name unique!)
+# - Ajuster annotations dataangel.io/* (IMPORTANT: deployment-name unique!)
 # - Ajuster securityContext (runAsUser/runAsGroup selon votre app)
 # - Ajuster image, ports, env vars de votre app
 
@@ -50,7 +50,7 @@ cd my-app/
 # - Changer namespace
 # - Patch: changer mountPath (si différent de /data)
 # - Patch: changer volumeMount name (si différent de "data")
-# - Patch: changer secret name (si différent de data-guard-credentials)
+# - Patch: changer secret name (si différent de dataangel-credentials)
 
 # Déployer
 kubectl apply -k .
@@ -66,7 +66,7 @@ kubectl apply -k .
 
 ⚠️ **Pourquoi ces patches manuels?**
 
-Pure kustomize (sans webhook) ne peut pas lire dynamiquement des annotations pour construire des valeurs. Le component fournit des **defaults sensibles** (`/data`, `data-guard-credentials`) que chaque app override via patches.
+Pure kustomize (sans webhook) ne peut pas lire dynamiquement des annotations pour construire des valeurs. Le component fournit des **defaults sensibles** (`/data`, `dataangel-credentials`) que chaque app override via patches.
 
 ## Alternative: Component par app
 
