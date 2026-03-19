@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
@@ -7,12 +7,14 @@ WORKDIR /build
 # Build unified dataangel binary (requires CGO for sqlite3)
 COPY cmd/dataangel/go.mod cmd/dataangel/go.sum /build/cmd/dataangel/
 COPY internal/sidecar/go.mod internal/sidecar/go.sum /build/internal/sidecar/
+COPY internal/lock/go.mod internal/lock/go.sum /build/internal/lock/
 
 WORKDIR /build/cmd/dataangel
 RUN go mod download
 
 COPY cmd/dataangel/. /build/cmd/dataangel/
 COPY internal/sidecar/. /build/internal/sidecar/
+COPY internal/lock/. /build/internal/lock/
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o dataangel .
 
 # Build CLI (still useful for debug/ops)
