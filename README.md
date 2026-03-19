@@ -71,12 +71,21 @@ kubectl exec -it <existing-pod> -- id
 
 ## Quick Start
 
-### 1. Deploy the image
+### 1. Choose a version
 
+**Production**: Use pinned versions for stability
 ```bash
-# Pull the latest image
-docker pull charchess/dataangel:latest
+docker pull charchess/dataangel:0.1.0
 ```
+
+**Development**: Use `dev` for latest main branch
+```bash
+docker pull charchess/dataangel:dev
+```
+
+**⚠️ Avoid `:latest` in production** — it tracks the most recent stable release and can break on automatic pulls.
+
+See [VERSIONING.md](./VERSIONING.md) for full versioning strategy and Renovate integration.
 
 ### 2. Add annotations to your Pod
 
@@ -92,7 +101,7 @@ metadata:
 spec:
   initContainers:
   - name: data-guard-init
-    image: charchess/dataangel:latest
+    image: charchess/dataangel:0.1.0  # Pin to stable version
     command: ["./init"]
     env:
     - name: DATA_GUARD_BUCKET
