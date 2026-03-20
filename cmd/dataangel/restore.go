@@ -120,15 +120,24 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 		return fmt.Errorf("litestream restore failed: %w", err)
 	}
 
-	// If DB was corrupted and restore didn't produce a file, the backup
-	// didn't exist on S3 — fail to prevent silent data loss (issue #20).
-	if wasCorrupted {
-		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+	// Check what actually happened after litestream exited 0.
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		// DB doesn't exist — litestream skipped because no replica found.
+		if wasCorrupted {
+			// Corrupted DB was removed but no S3 backup exists (issue #20).
 			return fmt.Errorf("CRITICAL: corrupted database was removed but no S3 backup exists for %s — refusing to start with empty database", dbPath)
 		}
+		// First deployment: no backup yet, app will create fresh DB (issue #27).
+		log.Printf("[dataangel] No S3 backup found for %s, app will create fresh database", dbPath)
+		return nil
 	}
 
-	log.Printf("[dataangel] SQLite restored successfully: %s", dbPath)
+	// DB exists after restore — verify integrity (issue #26).
+	if !isSQLiteHealthy(dbPath) {
+		return fmt.Errorf("CRITICAL: restored database failed integrity check: %s — S3 backup may be corrupted", dbPath)
+	}
+
+	log.Printf("[dataangel] SQLite restored and verified: %s", dbPath)
 	return nil
 }
 

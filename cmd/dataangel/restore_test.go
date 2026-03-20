@@ -1,10 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestGenerateLitestreamConfig(t *testing.T) {
@@ -95,6 +98,20 @@ func TestIsSQLiteHealthy(t *testing.T) {
 		os.WriteFile(tmp, []byte("this is not a sqlite database"), 0644)
 		if isSQLiteHealthy(tmp) {
 			t.Error("corrupted file should not be healthy")
+		}
+	})
+
+	t.Run("valid SQLite DB returns true", func(t *testing.T) {
+		tmp := filepath.Join(t.TempDir(), "valid.db")
+		db, err := sql.Open("sqlite3", tmp)
+		if err != nil {
+			t.Fatalf("failed to create test DB: %v", err)
+		}
+		db.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY)")
+		db.Close()
+
+		if !isSQLiteHealthy(tmp) {
+			t.Error("valid SQLite DB should be healthy")
 		}
 	})
 }
