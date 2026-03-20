@@ -79,6 +79,9 @@ func (r *RcloneRunner) syncOnce(ctx context.Context) error {
 		"--min-age", "30s",
 		"--timeout", "120s",
 		"--contimeout", "30s",
+		"--transfers", "1",
+		"--checkers", "2",
+		"--low-level-retries", "3",
 	}
 
 	if r.S3Endpoint != "" {
