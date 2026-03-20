@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -46,7 +47,10 @@ func (d *Daemon) initializeConfigs() error {
 	return nil
 }
 
-// Start begins the daemon with all goroutines managed by errgroup
+// Start begins the daemon with all goroutines managed by errgroup.
+// Litestream replicators start first; rclone is delayed to avoid saturating
+// S3/MinIO connections during the initial litestream snapshot, which would
+// starve lock renewals (see issue #17).
 func (d *Daemon) Start(ctx context.Context) error {
 	if err := d.initializeConfigs(); err != nil {
 		return fmt.Errorf("failed to initialize configs: %w", err)
@@ -54,6 +58,7 @@ func (d *Daemon) Start(ctx context.Context) error {
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
+	// Phase 1: Start litestream replicators immediately
 	for _, replicator := range d.litestream {
 		r := replicator
 		eg.Go(func() error {
@@ -62,8 +67,21 @@ func (d *Daemon) Start(ctx context.Context) error {
 		})
 	}
 
-	// Start rclone sync loop
+	// Phase 2: Start rclone after a delay to let litestream complete its
+	// initial snapshot without competing for S3 bandwidth
+	rcloneDelay := 30 * time.Second
+	if len(d.litestream) == 0 {
+		rcloneDelay = 0
+	}
 	eg.Go(func() error {
+		if rcloneDelay > 0 {
+			log.Printf("Delaying rclone start by %v to let litestream initialize", rcloneDelay)
+			select {
+			case <-egCtx.Done():
+				return egCtx.Err()
+			case <-time.After(rcloneDelay):
+			}
+		}
 		log.Printf("Starting rclone sync loop with interval %v", d.config.RcloneInterval)
 		return d.rclone.Start(egCtx)
 	})

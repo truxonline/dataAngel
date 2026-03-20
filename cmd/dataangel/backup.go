@@ -56,7 +56,7 @@ func renewLockPeriodically(ctx context.Context, s3Lock *lock.S3LockReal, interva
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			renewCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			renewCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			if err := s3Lock.Renew(renewCtx); err != nil {
 				log.Printf("[dataangel] Failed to renew lock: %v", err)
 			}
