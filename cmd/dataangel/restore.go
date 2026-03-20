@@ -76,12 +76,14 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 
 	log.Printf("[dataangel] restore database=%s", dbPath)
 
+	wasCorrupted := false
 	if _, err := os.Stat(dbPath); err == nil {
 		if !isSQLiteHealthy(dbPath) {
 			log.Printf("[dataangel] WARNING: Database exists but is corrupted, removing: %s", dbPath)
 			if err := os.Remove(dbPath); err != nil {
 				return fmt.Errorf("failed to remove corrupted database: %w", err)
 			}
+			wasCorrupted = true
 			log.Printf("[dataangel] Corrupted database removed, proceeding with restore")
 		}
 	}
@@ -131,6 +133,14 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("litestream restore failed: %w", err)
+	}
+
+	// If DB was corrupted and restore didn't produce a file, the backup
+	// didn't exist on S3 — fail to prevent silent data loss (issue #20).
+	if wasCorrupted {
+		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+			return fmt.Errorf("CRITICAL: corrupted database was removed but no S3 backup exists for %s — refusing to start with empty database", dbPath)
+		}
 	}
 
 	log.Printf("[dataangel] SQLite restored successfully: %s", dbPath)
