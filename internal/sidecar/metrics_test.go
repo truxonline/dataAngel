@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func TestGetMetrics(t *testing.T) {
@@ -63,11 +65,11 @@ func TestGetMetrics(t *testing.T) {
 	})
 }
 
-func TestStartMetricsServer(t *testing.T) {
-	t.Run("should serve /metrics endpoint", func(t *testing.T) {
-		// ARRANGE
-		m := GetMetrics()
-		handler := m.GetHandler()
+func TestMetricsInDefaultRegistry(t *testing.T) {
+	t.Run("should serve sidecar metrics via default registry", func(t *testing.T) {
+		// ARRANGE — ensure metrics are initialized
+		GetMetrics()
+		handler := promhttp.Handler() // default registry
 		req := httptest.NewRequest("GET", "/metrics", nil)
 		w := httptest.NewRecorder()
 
@@ -81,26 +83,13 @@ func TestStartMetricsServer(t *testing.T) {
 
 		body := w.Body.String()
 		if !strings.Contains(body, "dataguard_litestream_up") {
-			t.Error("Response should contain dataguard_litestream_up metric")
+			t.Error("Default registry should contain dataguard_litestream_up metric")
 		}
 		if !strings.Contains(body, "dataguard_rclone_up") {
-			t.Error("Response should contain dataguard_rclone_up metric")
+			t.Error("Default registry should contain dataguard_rclone_up metric")
 		}
-	})
-
-	t.Run("should return 404 for unknown paths", func(t *testing.T) {
-		// ARRANGE
-		m := GetMetrics()
-		handler := m.GetHandler()
-		req := httptest.NewRequest("GET", "/unknown", nil)
-		w := httptest.NewRecorder()
-
-		// ACT
-		handler.ServeHTTP(w, req)
-
-		// ASSERT
-		if w.Code != http.StatusNotFound {
-			t.Errorf("Expected status 404, got %d", w.Code)
+		if !strings.Contains(body, "dataguard_rclone_syncs_failed_total") {
+			t.Error("Default registry should contain dataguard_rclone_syncs_failed_total metric")
 		}
 	})
 }

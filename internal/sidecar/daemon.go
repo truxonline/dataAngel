@@ -11,10 +11,9 @@ import (
 )
 
 type Daemon struct {
-	config      Config
-	litestream  []*LitestreamRunner
-	rclone      *RcloneRunner
-	metricsPort int
+	config     Config
+	litestream []*LitestreamRunner
+	rclone     *RcloneRunner
 }
 
 func NewDaemon(config Config) *Daemon {
@@ -29,10 +28,9 @@ func NewDaemon(config Config) *Daemon {
 	rclonePaths = append(rclonePaths, config.YAMLPaths...)
 
 	return &Daemon{
-		config:      config,
-		litestream:  litestreamRunners,
-		rclone:      NewRcloneRunner(config.RcloneInterval, rclonePaths, config.Bucket, config.S3Endpoint),
-		metricsPort: config.MetricsPort,
+		config:     config,
+		litestream: litestreamRunners,
+		rclone:     NewRcloneRunner(config.RcloneInterval, rclonePaths, config.Bucket, config.S3Endpoint),
 	}
 }
 
@@ -86,21 +84,8 @@ func (d *Daemon) Start(ctx context.Context) error {
 		return d.rclone.Start(egCtx)
 	})
 
-	// Start metrics server (if enabled)
-	if d.config.MetricsEnabled {
-		eg.Go(func() error {
-			log.Printf("Starting metrics server on port %d", d.metricsPort)
-			metrics := GetMetrics()
-			addr := fmt.Sprintf(":%d", d.metricsPort)
-			if err := metrics.StartServer(addr); err != nil {
-				return fmt.Errorf("failed to start metrics server: %w", err)
-			}
-			<-egCtx.Done()
-			return nil
-		})
-	} else {
-		log.Printf("Metrics server disabled (DATA_GUARD_METRICS_ENABLED=false)")
-	}
+	// Sidecar metrics are registered in the default Prometheus registry
+	// and served by the readiness server in phase.go (issue #21).
 
 	// Wait for all goroutines to complete
 	err := eg.Wait()

@@ -1,13 +1,10 @@
 package sidecar
 
 import (
-	"net/http"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -15,9 +12,10 @@ var (
 	sidecarMetrics *SidecarMetrics
 )
 
-// SidecarMetrics holds all Prometheus metrics for the sidecar daemon
+// SidecarMetrics holds all Prometheus metrics for the sidecar daemon.
+// Metrics are registered in the default Prometheus registry so they are
+// served by the readiness server's /metrics endpoint (phase.go).
 type SidecarMetrics struct {
-	Registry        *prometheus.Registry
 	LitestreamUp    prometheus.Gauge
 	RcloneUp        prometheus.Gauge
 	SyncDuration    prometheus.Histogram
@@ -32,14 +30,7 @@ type SidecarMetrics struct {
 // GetMetrics returns the singleton SidecarMetrics instance
 func GetMetrics() *SidecarMetrics {
 	once.Do(func() {
-		reg := prometheus.NewRegistry()
-
-		// Add standard Go collectors
-		reg.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-		reg.MustRegister(collectors.NewGoCollector())
-
 		sidecarMetrics = &SidecarMetrics{
-			Registry: reg,
 			LitestreamUp: prometheus.NewGauge(prometheus.GaugeOpts{
 				Name: "dataguard_litestream_up",
 				Help: "Litestream replication status (1=up, 0=down)",
@@ -76,8 +67,8 @@ func GetMetrics() *SidecarMetrics {
 			startTime: time.Now(),
 		}
 
-		// Register all metrics
-		reg.MustRegister(
+		// Register all metrics in the default Prometheus registry
+		prometheus.MustRegister(
 			sidecarMetrics.LitestreamUp,
 			sidecarMetrics.RcloneUp,
 			sidecarMetrics.SyncDuration,
@@ -106,27 +97,3 @@ func (m *SidecarMetrics) updateUptime() {
 	}
 }
 
-// GetHandler returns an HTTP handler for the /metrics endpoint
-func (m *SidecarMetrics) GetHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(m.Registry, promhttp.HandlerOpts{}))
-	return mux
-}
-
-// StartServer starts the metrics HTTP server (non-blocking)
-func (m *SidecarMetrics) StartServer(addr string) error {
-	server := &http.Server{
-		Addr:         addr,
-		Handler:      m.GetHandler(),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			// Log error but don't panic
-		}
-	}()
-
-	return nil
-}
