@@ -20,7 +20,7 @@ func NewDaemon(config Config) *Daemon {
 	var litestreamRunners []*LitestreamRunner
 	for i, dbPath := range config.SqlitePaths {
 		configPath := fmt.Sprintf("/tmp/litestream-%s-%d.yml", filepath.Base(dbPath), i)
-		litestreamRunners = append(litestreamRunners, NewLitestreamRunner(configPath))
+		litestreamRunners = append(litestreamRunners, NewLitestreamRunner(configPath, dbPath))
 	}
 
 	var rclonePaths []string
@@ -87,17 +87,10 @@ func (d *Daemon) Start(ctx context.Context) error {
 	// Sidecar metrics are registered in the default Prometheus registry
 	// and served by the readiness server in phase.go (issue #21).
 
-	// Wait for all goroutines to complete
-	err := eg.Wait()
-
-	// Graceful shutdown with timeout
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), d.config.ShutdownTimeout)
-	defer cancel()
-
-	// Wait for shutdown context to complete
-	<-shutdownCtx.Done()
-
-	return err
+	// Wait for all goroutines to complete (subprocess WaitDelay handles
+	// graceful termination). Return immediately so callers can run cleanup
+	// (e.g. lock release) before Kubernetes sends SIGKILL (issue #23).
+	return eg.Wait()
 }
 
 // RunSidecar starts the complete sidecar daemon (convenience wrapper for Daemon.Start)

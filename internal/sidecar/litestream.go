@@ -37,17 +37,23 @@ func (r *realCommandRunner) Run(ctx context.Context, name string, args ...string
 
 type LitestreamRunner struct {
 	ConfigPath string
+	DBPath     string
 	runner     CommandRunner
 	metrics    *SidecarMetrics
 }
 
-func NewLitestreamRunner(configPath string) *LitestreamRunner {
+func NewLitestreamRunner(configPath, dbPath string) *LitestreamRunner {
 	return &LitestreamRunner{
 		ConfigPath: configPath,
+		DBPath:     dbPath,
 		runner:     &realCommandRunner{},
 		metrics:    GetMetrics(),
 	}
 }
+
+// maxConsecutiveMissing is the number of consecutive DB-missing checks
+// before the runner returns a fatal error (issue #22).
+const maxConsecutiveMissing = 10
 
 func (l *LitestreamRunner) Start(ctx context.Context) error {
 	if l.ConfigPath == "" {
@@ -58,7 +64,45 @@ func (l *LitestreamRunner) Start(ctx context.Context) error {
 		l.metrics.LitestreamUp.Set(1)
 	}
 
-	err := l.runner.Run(ctx, "litestream", "replicate", "-config", l.ConfigPath)
+	// Monitor DB file existence in background — if deleted at runtime,
+	// litestream keeps running but logs errors indefinitely (issue #22).
+	dbErrCh := make(chan error, 1)
+	if l.DBPath != "" {
+		go func() {
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+			consecutive := 0
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if _, err := os.Stat(l.DBPath); os.IsNotExist(err) {
+						consecutive++
+						log.Printf("[dataangel] WARNING: database file missing: %s (%d/%d)", l.DBPath, consecutive, maxConsecutiveMissing)
+						if consecutive >= maxConsecutiveMissing {
+							dbErrCh <- fmt.Errorf("CRITICAL: database file %s has been missing for %d consecutive checks — exiting to trigger restore", l.DBPath, consecutive)
+							return
+						}
+					} else {
+						consecutive = 0
+					}
+				}
+			}
+		}()
+	}
+
+	// Run litestream, but also watch for DB disappearance
+	litestreamDone := make(chan error, 1)
+	go func() {
+		litestreamDone <- l.runner.Run(ctx, "litestream", "replicate", "-config", l.ConfigPath)
+	}()
+
+	var err error
+	select {
+	case err = <-litestreamDone:
+	case err = <-dbErrCh:
+	}
 
 	if err != nil && err != context.Canceled && l.metrics != nil {
 		l.metrics.LitestreamUp.Set(0)
