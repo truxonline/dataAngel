@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -67,7 +68,7 @@ func isSQLiteHealthy(path string) bool {
 }
 
 // restoreSQLite restores a single SQLite database using litestream
-func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string) error {
+func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeout time.Duration) error {
 	dbPath = strings.TrimSpace(dbPath)
 	if dbPath == "" {
 		return nil
@@ -116,13 +117,15 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string) error
 		}
 	}
 
-	restoreCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	restoreCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(restoreCtx, "litestream", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()
+	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.WaitDelay = 15 * time.Second
 
 	log.Printf("[dataangel] Running: litestream %s", strings.Join(args, " "))
 
@@ -135,7 +138,7 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string) error
 }
 
 // restoreFilesystem restores a single filesystem path using rclone
-func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string) error {
+func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, timeout time.Duration) error {
 	fsPath = strings.TrimSpace(fsPath)
 	if fsPath == "" {
 		return nil
@@ -162,13 +165,15 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string) e
 		args = append(args, "--s3-provider", "AWS")
 	}
 
-	restoreCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	restoreCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(restoreCtx, "rclone", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()
+	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.WaitDelay = 15 * time.Second
 
 	log.Printf("[dataangel] Running: rclone %s", strings.Join(args, " "))
 
@@ -184,14 +189,14 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string) e
 func RunRestore(ctx context.Context, config Config) error {
 	// Restore all SQLite databases
 	for _, dbPath := range config.SqlitePaths {
-		if err := restoreSQLite(ctx, config.Bucket, config.S3Endpoint, dbPath); err != nil {
+		if err := restoreSQLite(ctx, config.Bucket, config.S3Endpoint, dbPath, config.RestoreTimeout); err != nil {
 			return fmt.Errorf("failed to restore SQLite %s: %w", dbPath, err)
 		}
 	}
 
 	// Restore all filesystem paths
 	for _, fsPath := range config.FsPaths {
-		if err := restoreFilesystem(ctx, config.Bucket, config.S3Endpoint, fsPath); err != nil {
+		if err := restoreFilesystem(ctx, config.Bucket, config.S3Endpoint, fsPath, config.RestoreTimeout); err != nil {
 			return fmt.Errorf("failed to restore filesystem %s: %w", fsPath, err)
 		}
 	}

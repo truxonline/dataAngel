@@ -25,6 +25,9 @@ type Config struct {
 	DeploymentName string
 	LockTTL        time.Duration
 
+	// Restore configuration
+	RestoreTimeout time.Duration
+
 	// Backup daemon configuration
 	RcloneInterval  time.Duration
 	ShutdownTimeout time.Duration
@@ -67,6 +70,16 @@ func LoadConfig() (Config, error) {
 	var yamlPaths []string
 	if yamlPathsStr != "" {
 		yamlPaths = strings.Split(yamlPathsStr, ",")
+	}
+
+	// Parse restore timeout (default: 10m)
+	restoreTimeoutStr := os.Getenv("DATA_GUARD_RESTORE_TIMEOUT")
+	if restoreTimeoutStr == "" {
+		restoreTimeoutStr = "10m"
+	}
+	restoreTimeout, err := time.ParseDuration(restoreTimeoutStr)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid DATA_GUARD_RESTORE_TIMEOUT: %w", err)
 	}
 
 	// Parse rclone interval (default: 60s)
@@ -141,6 +154,7 @@ func LoadConfig() (Config, error) {
 		SqlitePaths:     sqlitePaths,
 		FsPaths:         fsPaths,
 		YAMLPaths:       yamlPaths,
+		RestoreTimeout:  restoreTimeout,
 		DeploymentName:  deploymentName,
 		LockTTL:         lockTTL,
 		RcloneInterval:  rcloneInterval,
