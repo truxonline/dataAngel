@@ -88,35 +88,20 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 		}
 	}
 
-	var args []string
-	var configPath string
+	// Always generate a config file — litestream requires one and falls
+	// back to /etc/litestream.yml which doesn't exist in our container.
+	configPath, err := generateLitestreamConfig(dbPath, bucket, s3Endpoint)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(configPath)
 
-	if s3Endpoint != "" {
-		var err error
-		configPath, err = generateLitestreamConfig(dbPath, bucket, s3Endpoint)
-		if err != nil {
-			return err
-		}
-		defer os.Remove(configPath)
-
-		args = []string{
-			"restore",
-			"-config", configPath,
-			"-if-db-not-exists",
-			"-if-replica-exists",
-			dbPath,
-		}
-	} else {
-		dbName := filepath.Base(dbPath)
-		replicaURL := fmt.Sprintf("s3://%s/%s", bucket, dbName)
-
-		args = []string{
-			"restore",
-			"-if-db-not-exists",
-			"-if-replica-exists",
-			"-replica", replicaURL,
-			dbPath,
-		}
+	args := []string{
+		"restore",
+		"-config", configPath,
+		"-if-db-not-exists",
+		"-if-replica-exists",
+		dbPath,
 	}
 
 	restoreCtx, cancel := context.WithTimeout(ctx, timeout)
