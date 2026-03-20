@@ -19,15 +19,15 @@ RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o dataangel .
 
 # Build CLI (still useful for debug/ops)
 COPY cmd/cli/go.mod /build/cmd/cli/
-COPY cmd/data-guard-cli/go.mod /build/cmd/data-guard-cli/
+COPY cmd/dataangel-cli/go.mod /build/cmd/dataangel-cli/
 COPY pkg/s3/go.mod /build/pkg/s3/
 
 WORKDIR /build/cmd/cli
 RUN go mod download
 
-WORKDIR /build/cmd/data-guard-cli
+WORKDIR /build/cmd/dataangel-cli
 COPY cmd/cli/. /build/cmd/cli/
-COPY cmd/data-guard-cli/. /build/cmd/data-guard-cli/
+COPY cmd/dataangel-cli/. /build/cmd/dataangel-cli/
 COPY pkg/s3/. /build/pkg/s3/
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o cli .
 
@@ -42,7 +42,7 @@ RUN addgroup -g 1000 dataguard && \
 WORKDIR /home/dataguard
 
 COPY --from=builder --chown=dataguard:dataguard /build/cmd/dataangel/dataangel .
-COPY --from=builder --chown=dataguard:dataguard /build/cmd/data-guard-cli/cli .
+COPY --from=builder --chown=dataguard:dataguard /build/cmd/dataangel-cli/cli .
 
 USER dataguard
 

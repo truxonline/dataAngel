@@ -6,7 +6,7 @@ WORKDIR /build
 
 COPY pkg/s3/go.mod pkg/s3/
 COPY cmd/cli/go.mod cmd/cli/
-COPY cmd/data-guard-cli/go.mod cmd/data-guard-cli/
+COPY cmd/dataangel-cli/go.mod cmd/dataangel-cli/
 
 WORKDIR /build/pkg/s3
 RUN go mod download
@@ -14,15 +14,15 @@ RUN go mod download
 WORKDIR /build/cmd/cli
 RUN go mod download
 
-WORKDIR /build/cmd/data-guard-cli
+WORKDIR /build/cmd/dataangel-cli
 RUN go mod download
 
 COPY pkg/s3/. /build/pkg/s3/
 COPY cmd/cli/. /build/cmd/cli/
-COPY cmd/data-guard-cli/. /build/cmd/data-guard-cli/
+COPY cmd/dataangel-cli/. /build/cmd/dataangel-cli/
 
-WORKDIR /build/cmd/data-guard-cli
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o data-guard-cli .
+WORKDIR /build/cmd/dataangel-cli
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o dataangel-cli .
 
 FROM alpine:latest
 
@@ -30,6 +30,6 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-COPY --from=builder /build/cmd/data-guard-cli/data-guard-cli .
+COPY --from=builder /build/cmd/dataangel-cli/dataangel-cli .
 
-ENTRYPOINT ["./data-guard-cli"]
+ENTRYPOINT ["./dataangel-cli"]
