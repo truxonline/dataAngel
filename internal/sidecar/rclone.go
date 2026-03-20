@@ -3,6 +3,7 @@ package sidecar
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 )
 
@@ -45,7 +46,7 @@ func (r *RcloneRunner) Start(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			start := time.Now()
-			err := r.syncOnce(ctx)
+			err := r.syncAll(ctx)
 
 			if r.metrics != nil {
 				duration := time.Since(start).Seconds()
@@ -67,11 +68,24 @@ func (r *RcloneRunner) Start(ctx context.Context) error {
 	}
 }
 
-func (r *RcloneRunner) syncOnce(ctx context.Context) error {
+// syncAll syncs all configured filesystem paths to S3.
+func (r *RcloneRunner) syncAll(ctx context.Context) error {
+	for _, fsPath := range r.FsPaths {
+		if err := r.syncOnce(ctx, fsPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// syncOnce syncs a single filesystem path to its matching S3 prefix.
+// Uses filepath.Base(fsPath) as the S3 prefix to match restore.go (issue #30).
+func (r *RcloneRunner) syncOnce(ctx context.Context, fsPath string) error {
+	s3Prefix := filepath.Base(fsPath)
 	args := []string{
 		"sync",
-		r.FsPaths[0],
-		fmt.Sprintf(":s3:%s/filesystem", r.Bucket),
+		fsPath,
+		fmt.Sprintf(":s3:%s/%s", r.Bucket, s3Prefix),
 		"--s3-env-auth",
 		"--exclude", "*.db*",
 		"--exclude", ".*.db-litestream/**",
