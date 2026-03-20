@@ -66,11 +66,15 @@ func (l *LitestreamRunner) Start(ctx context.Context) error {
 
 	// Monitor DB file existence in background — if deleted at runtime,
 	// litestream keeps running but logs errors indefinitely (issue #22).
+	// Only trigger exit if the DB was previously seen (distinguishes
+	// runtime deletion from first-deploy where app hasn't created it yet,
+	// see issue #29).
 	dbErrCh := make(chan error, 1)
 	if l.DBPath != "" {
 		go func() {
 			ticker := time.NewTicker(3 * time.Second)
 			defer ticker.Stop()
+			dbWasSeen := false
 			consecutive := 0
 			for {
 				select {
@@ -78,6 +82,10 @@ func (l *LitestreamRunner) Start(ctx context.Context) error {
 					return
 				case <-ticker.C:
 					if _, err := os.Stat(l.DBPath); os.IsNotExist(err) {
+						if !dbWasSeen {
+							// First deploy: DB not created yet, keep waiting
+							continue
+						}
 						consecutive++
 						log.Printf("[dataangel] WARNING: database file missing: %s (%d/%d)", l.DBPath, consecutive, maxConsecutiveMissing)
 						if consecutive >= maxConsecutiveMissing {
@@ -85,6 +93,7 @@ func (l *LitestreamRunner) Start(ctx context.Context) error {
 							return
 						}
 					} else {
+						dbWasSeen = true
 						consecutive = 0
 					}
 				}
