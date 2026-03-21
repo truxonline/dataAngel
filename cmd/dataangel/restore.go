@@ -38,17 +38,37 @@ func generateLitestreamConfig(dbPath, bucket, s3Endpoint string) (string, error)
 	return configPath, nil
 }
 
-// isSQLiteHealthy checks if a SQLite database is not corrupted
-func isSQLiteHealthy(path string) bool {
+// isSQLiteQuickCheck does a fast validation: file exists, non-zero, valid
+// SQLite header, and PRAGMA quick_check (checks B-tree structure without
+// reading every page). Use this for the common "DB already exists on PVC"
+// path to avoid the 30+ minute full integrity_check on large DBs (#39).
+func isSQLiteQuickCheck(path string) bool {
 	info, err := os.Stat(path)
-	if os.IsNotExist(err) {
+	if err != nil || info.Size() == 0 {
 		return false
 	}
+
+	db, err := sql.Open("sqlite3", path+"?mode=ro")
+	if err != nil {
+		return false
+	}
+	defer db.Close()
+
+	var result string
+	err = db.QueryRow("PRAGMA quick_check").Scan(&result)
 	if err != nil {
 		return false
 	}
 
-	if info.Size() == 0 {
+	return result == "ok"
+}
+
+// isSQLiteHealthy does a full PRAGMA integrity_check. This reads every page
+// and can take 30+ minutes on large databases. Only use after restoring
+// from S3 to verify the backup isn't corrupted.
+func isSQLiteHealthy(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || info.Size() == 0 {
 		return false
 	}
 
@@ -67,6 +87,25 @@ func isSQLiteHealthy(path string) bool {
 	return result == "ok"
 }
 
+// formatSize returns a human-readable file size.
+func formatSize(bytes int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
+
 // restoreSQLite restores a single SQLite database using litestream
 func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeout time.Duration) error {
 	dbPath = strings.TrimSpace(dbPath)
@@ -74,22 +113,38 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 		return nil
 	}
 
-	log.Printf("[dataangel] restore database=%s", dbPath)
+	start := time.Now()
 
-	wasCorrupted := false
-	if _, err := os.Stat(dbPath); err == nil {
-		if !isSQLiteHealthy(dbPath) {
-			log.Printf("[dataangel] WARNING: Database exists but is corrupted, removing: %s", dbPath)
-			if err := os.Remove(dbPath); err != nil {
-				return fmt.Errorf("failed to remove corrupted database: %w", err)
-			}
-			wasCorrupted = true
-			log.Printf("[dataangel] Corrupted database removed, proceeding with restore")
+	// Check if DB already exists on disk
+	log.Printf("[dataangel] checking database: %s", dbPath)
+	info, statErr := os.Stat(dbPath)
+	dbExisted := statErr == nil
+
+	if dbExisted {
+		log.Printf("[dataangel] database found on disk: %s (size: %s)", dbPath, formatSize(info.Size()))
+
+		// Fast path: DB exists, do a quick check instead of full integrity
+		// check. PRAGMA quick_check validates B-tree structure without
+		// reading every page — seconds vs 30+ min on large DBs (#39).
+		log.Printf("[dataangel] running quick validation (PRAGMA quick_check)...")
+		checkStart := time.Now()
+		if isSQLiteQuickCheck(dbPath) {
+			log.Printf("[dataangel] database valid, skipping restore: %s (validated in %v)", dbPath, time.Since(checkStart).Round(time.Millisecond))
+			return nil
 		}
+
+		// Quick check failed — DB is corrupted
+		log.Printf("[dataangel] WARNING: database exists but failed quick_check (took %v), removing: %s", time.Since(checkStart).Round(time.Millisecond), dbPath)
+		if err := os.Remove(dbPath); err != nil {
+			return fmt.Errorf("failed to remove corrupted database: %w", err)
+		}
+		log.Printf("[dataangel] corrupted database removed, proceeding with S3 restore")
+	} else {
+		log.Printf("[dataangel] database not found on disk: %s", dbPath)
 	}
 
-	// Always generate a config file — litestream requires one and falls
-	// back to /etc/litestream.yml which doesn't exist in our container.
+	// DB doesn't exist (or was removed) — attempt litestream restore from S3
+	log.Printf("[dataangel] preparing litestream restore config...")
 	configPath, err := generateLitestreamConfig(dbPath, bucket, s3Endpoint)
 	if err != nil {
 		return err
@@ -114,30 +169,34 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
 	cmd.WaitDelay = 15 * time.Second
 
-	log.Printf("[dataangel] Running: litestream %s", strings.Join(args, " "))
+	log.Printf("[dataangel] running: litestream %s", strings.Join(args, " "))
+	litestreamStart := time.Now()
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("litestream restore failed: %w", err)
 	}
+	log.Printf("[dataangel] litestream completed in %v", time.Since(litestreamStart).Round(time.Millisecond))
 
 	// Check what actually happened after litestream exited 0.
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		// DB doesn't exist — litestream skipped because no replica found.
-		if wasCorrupted {
+		if dbExisted {
 			// Corrupted DB was removed but no S3 backup exists (issue #20).
 			return fmt.Errorf("CRITICAL: corrupted database was removed but no S3 backup exists for %s — refusing to start with empty database", dbPath)
 		}
 		// First deployment: no backup yet, app will create fresh DB (issue #27).
-		log.Printf("[dataangel] No S3 backup found for %s, app will create fresh database", dbPath)
+		log.Printf("[dataangel] no S3 backup found for %s, app will create fresh database", dbPath)
 		return nil
 	}
 
-	// DB exists after restore — verify integrity (issue #26).
+	// DB was restored from S3 — do full integrity check (issue #26).
+	restoredInfo, _ := os.Stat(dbPath)
+	log.Printf("[dataangel] database restored from S3: %s (size: %s), running full integrity check...", dbPath, formatSize(restoredInfo.Size()))
+	checkStart := time.Now()
 	if !isSQLiteHealthy(dbPath) {
 		return fmt.Errorf("CRITICAL: restored database failed integrity check: %s — S3 backup may be corrupted", dbPath)
 	}
 
-	log.Printf("[dataangel] SQLite restored and verified: %s", dbPath)
+	log.Printf("[dataangel] SQLite restored and verified: %s (integrity check: %v, total: %v)", dbPath, time.Since(checkStart).Round(time.Millisecond), time.Since(start).Round(time.Millisecond))
 	return nil
 }
 

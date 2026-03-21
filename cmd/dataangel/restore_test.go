@@ -78,26 +78,48 @@ func TestGenerateLitestreamConfig(t *testing.T) {
 	})
 }
 
-func TestIsSQLiteHealthy(t *testing.T) {
+func TestIsSQLiteQuickCheck(t *testing.T) {
 	t.Run("nonexistent file returns false", func(t *testing.T) {
-		if isSQLiteHealthy("/nonexistent/path.db") {
-			t.Error("nonexistent file should not be healthy")
+		if isSQLiteQuickCheck("/nonexistent/path.db") {
+			t.Error("nonexistent file should not pass quick check")
 		}
 	})
 
 	t.Run("empty file returns false", func(t *testing.T) {
 		tmp := filepath.Join(t.TempDir(), "empty.db")
 		os.WriteFile(tmp, []byte{}, 0644)
-		if isSQLiteHealthy(tmp) {
-			t.Error("empty file should not be healthy")
+		if isSQLiteQuickCheck(tmp) {
+			t.Error("empty file should not pass quick check")
 		}
 	})
 
 	t.Run("corrupted file returns false", func(t *testing.T) {
 		tmp := filepath.Join(t.TempDir(), "corrupt.db")
 		os.WriteFile(tmp, []byte("this is not a sqlite database"), 0644)
-		if isSQLiteHealthy(tmp) {
-			t.Error("corrupted file should not be healthy")
+		if isSQLiteQuickCheck(tmp) {
+			t.Error("corrupted file should not pass quick check")
+		}
+	})
+
+	t.Run("valid SQLite DB returns true", func(t *testing.T) {
+		tmp := filepath.Join(t.TempDir(), "valid.db")
+		db, err := sql.Open("sqlite3", tmp)
+		if err != nil {
+			t.Fatalf("failed to create test DB: %v", err)
+		}
+		db.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY)")
+		db.Close()
+
+		if !isSQLiteQuickCheck(tmp) {
+			t.Error("valid SQLite DB should pass quick check")
+		}
+	})
+}
+
+func TestIsSQLiteHealthy(t *testing.T) {
+	t.Run("nonexistent file returns false", func(t *testing.T) {
+		if isSQLiteHealthy("/nonexistent/path.db") {
+			t.Error("nonexistent file should not be healthy")
 		}
 	})
 
@@ -114,6 +136,24 @@ func TestIsSQLiteHealthy(t *testing.T) {
 			t.Error("valid SQLite DB should be healthy")
 		}
 	})
+}
+
+func TestFormatSize(t *testing.T) {
+	tests := []struct {
+		bytes    int64
+		expected string
+	}{
+		{500, "500 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1048576, "1.0 MB"},
+		{2411724800, "2.2 GB"},
+	}
+	for _, tt := range tests {
+		if got := formatSize(tt.bytes); got != tt.expected {
+			t.Errorf("formatSize(%d) = %q, want %q", tt.bytes, got, tt.expected)
+		}
+	}
 }
 
 func TestRestoreSQLiteSkipsEmpty(t *testing.T) {
