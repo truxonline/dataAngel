@@ -106,6 +106,27 @@ func formatSize(bytes int64) string {
 	}
 }
 
+// logFileProgress logs the size of a file periodically while it's being
+// written (e.g. during litestream restore). Stops when ctx is cancelled.
+func logFileProgress(ctx context.Context, path string, operation string, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	start := time.Now()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			info, err := os.Stat(path)
+			if err != nil {
+				continue
+			}
+			log.Printf("[dataangel] %s progress: %s (%s, %v elapsed)", operation, path, formatSize(info.Size()), time.Since(start).Round(time.Second))
+		}
+	}
+}
+
 // restoreSQLite restores a single SQLite database using litestream
 func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeout time.Duration) error {
 	dbPath = strings.TrimSpace(dbPath)
@@ -172,9 +193,15 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 	log.Printf("[dataangel] running: litestream %s", strings.Join(args, " "))
 	litestreamStart := time.Now()
 
+	// Monitor file size during restore for progress reporting
+	progressCtx, progressCancel := context.WithCancel(restoreCtx)
+	go logFileProgress(progressCtx, dbPath, "litestream restore", 5*time.Second)
+
 	if err := cmd.Run(); err != nil {
+		progressCancel()
 		return fmt.Errorf("litestream restore failed: %w", err)
 	}
+	progressCancel()
 	log.Printf("[dataangel] litestream completed in %v", time.Since(litestreamStart).Round(time.Millisecond))
 
 	// Check what actually happened after litestream exited 0.
@@ -207,6 +234,7 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, t
 		return nil
 	}
 
+	start := time.Now()
 	log.Printf("[dataangel] restore filesystem=%s", fsPath)
 
 	remotePath := fmt.Sprintf(":s3:%s/%s", bucket, filepath.Base(fsPath))
@@ -218,6 +246,8 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, t
 		"--s3-env-auth",
 		"--timeout", "60s",
 		"--contimeout", "15s",
+		"--stats", "5s",
+		"--stats-one-line",
 	}
 
 	for _, pattern := range excludePatterns {
@@ -246,7 +276,7 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, t
 		return fmt.Errorf("rclone copy failed: %w", err)
 	}
 
-	log.Printf("[dataangel] Filesystem restored successfully: %s", fsPath)
+	log.Printf("[dataangel] Filesystem restored: %s (elapsed: %v)", fsPath, time.Since(start).Round(time.Millisecond))
 	return nil
 }
 
