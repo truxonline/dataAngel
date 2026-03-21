@@ -87,7 +87,8 @@ func NewS3LockReal(ctx context.Context, cfg S3LockConfig) (*S3LockReal, error) {
 
 func (l *S3LockReal) Acquire(ctx context.Context, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	baseInterval := 2 * time.Second
+	interval := 2 * time.Second
+	maxInterval := 30 * time.Second
 
 	for time.Now().Before(deadline) {
 		locked, err := l.tryAcquire(ctx)
@@ -113,12 +114,19 @@ func (l *S3LockReal) Acquire(ctx context.Context, timeout time.Duration) error {
 			continue
 		}
 
-		// Jitter to avoid thundering herd on cluster-wide restarts (#34)
-		jitter := time.Duration(rand.Int63n(int64(baseInterval)))
+		// Exponential backoff with jitter to handle high-contention
+		// scenarios (15+ instances on shared MinIO, issue #17).
+		jitter := time.Duration(rand.Int63n(int64(interval)))
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(baseInterval + jitter):
+		case <-time.After(interval + jitter):
+		}
+		if interval < maxInterval {
+			interval *= 2
+			if interval > maxInterval {
+				interval = maxInterval
+			}
 		}
 	}
 
