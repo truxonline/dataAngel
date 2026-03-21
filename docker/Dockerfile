@@ -46,5 +46,7 @@ COPY --from=builder --chown=dataguard:dataguard /build/cmd/dataangel-cli/cli .
 
 USER dataguard
 
+ENV RCLONE_CONFIG=/dev/null
+
 ENTRYPOINT ["/bin/sh", "-c"]
 CMD ["./dataangel"]
