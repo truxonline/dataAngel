@@ -23,8 +23,10 @@ type SidecarMetrics struct {
 	SyncsFailed     prometheus.Counter
 	YAMLValidations prometheus.Counter
 	YAMLCacheHits   prometheus.Counter
-	SidecarUptime   prometheus.Gauge
-	startTime       time.Time
+	SidecarUptime              prometheus.Gauge
+	LastSuccessfulRcloneSync   prometheus.Gauge
+	LockRenewalFailures        prometheus.Counter
+	startTime                  time.Time
 }
 
 // GetMetrics returns the singleton SidecarMetrics instance
@@ -32,37 +34,45 @@ func GetMetrics() *SidecarMetrics {
 	once.Do(func() {
 		sidecarMetrics = &SidecarMetrics{
 			LitestreamUp: prometheus.NewGauge(prometheus.GaugeOpts{
-				Name: "dataguard_litestream_up",
+				Name: "dataangel_litestream_up",
 				Help: "Litestream replication status (1=up, 0=down)",
 			}),
 			RcloneUp: prometheus.NewGauge(prometheus.GaugeOpts{
-				Name: "dataguard_rclone_up",
+				Name: "dataangel_rclone_up",
 				Help: "Rclone sync status (1=up, 0=down)",
 			}),
 			SyncDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
-				Name:    "dataguard_rclone_sync_duration_seconds",
+				Name:    "dataangel_rclone_sync_duration_seconds",
 				Help:    "Duration of rclone sync operations",
 				Buckets: prometheus.DefBuckets,
 			}),
 			SyncsTotal: prometheus.NewCounter(prometheus.CounterOpts{
-				Name: "dataguard_rclone_syncs_total",
+				Name: "dataangel_rclone_syncs_total",
 				Help: "Total number of rclone sync operations",
 			}),
 			SyncsFailed: prometheus.NewCounter(prometheus.CounterOpts{
-				Name: "dataguard_rclone_syncs_failed_total",
+				Name: "dataangel_rclone_syncs_failed_total",
 				Help: "Total number of failed rclone sync operations",
 			}),
 			YAMLValidations: prometheus.NewCounter(prometheus.CounterOpts{
-				Name: "dataguard_yaml_validations_total",
+				Name: "dataangel_yaml_validations_total",
 				Help: "Total number of YAML validation operations",
 			}),
 			YAMLCacheHits: prometheus.NewCounter(prometheus.CounterOpts{
-				Name: "dataguard_yaml_cache_hits_total",
+				Name: "dataangel_yaml_cache_hits_total",
 				Help: "Total number of YAML cache hits",
 			}),
 			SidecarUptime: prometheus.NewGauge(prometheus.GaugeOpts{
-				Name: "dataguard_sidecar_uptime_seconds",
+				Name: "dataangel_sidecar_uptime_seconds",
 				Help: "Sidecar daemon uptime in seconds",
+			}),
+			LastSuccessfulRcloneSync: prometheus.NewGauge(prometheus.GaugeOpts{
+				Name: "dataangel_last_successful_rclone_sync_timestamp",
+				Help: "Unix timestamp of last successful rclone sync",
+			}),
+			LockRenewalFailures: prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "dataangel_lock_renewal_failures_total",
+				Help: "Total number of failed lock renewal attempts",
 			}),
 			startTime: time.Now(),
 		}
@@ -77,6 +87,8 @@ func GetMetrics() *SidecarMetrics {
 			sidecarMetrics.YAMLValidations,
 			sidecarMetrics.YAMLCacheHits,
 			sidecarMetrics.SidecarUptime,
+			sidecarMetrics.LastSuccessfulRcloneSync,
+			sidecarMetrics.LockRenewalFailures,
 		)
 
 		// Start uptime updater

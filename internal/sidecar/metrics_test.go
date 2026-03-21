@@ -82,14 +82,14 @@ func TestMetricsInDefaultRegistry(t *testing.T) {
 		}
 
 		body := w.Body.String()
-		if !strings.Contains(body, "dataguard_litestream_up") {
-			t.Error("Default registry should contain dataguard_litestream_up metric")
+		if !strings.Contains(body, "dataangel_litestream_up") {
+			t.Error("Default registry should contain dataangel_litestream_up metric")
 		}
-		if !strings.Contains(body, "dataguard_rclone_up") {
-			t.Error("Default registry should contain dataguard_rclone_up metric")
+		if !strings.Contains(body, "dataangel_rclone_up") {
+			t.Error("Default registry should contain dataangel_rclone_up metric")
 		}
-		if !strings.Contains(body, "dataguard_rclone_syncs_failed_total") {
-			t.Error("Default registry should contain dataguard_rclone_syncs_failed_total metric")
+		if !strings.Contains(body, "dataangel_rclone_syncs_failed_total") {
+			t.Error("Default registry should contain dataangel_rclone_syncs_failed_total metric")
 		}
 	})
 }
