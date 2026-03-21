@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"path/filepath"
 	"time"
 
@@ -30,7 +31,17 @@ func NewDaemon(config Config) *Daemon {
 	return &Daemon{
 		config:     config,
 		litestream: litestreamRunners,
-		rclone:     NewRcloneRunner(config.RcloneInterval, rclonePaths, config.Bucket, config.S3Endpoint),
+		rclone: NewRcloneRunner(RcloneRunnerConfig{
+			Interval:        config.RcloneInterval,
+			SyncTimeout:     config.SyncTimeout,
+			FsPaths:         rclonePaths,
+			Bucket:          config.Bucket,
+			S3Endpoint:      config.S3Endpoint,
+			ExcludePatterns: config.ExcludePatterns,
+			Transfers:       config.RcloneTransfers,
+			Checkers:        config.RcloneCheckers,
+			Bwlimit:         config.RcloneBwlimit,
+		}),
 	}
 }
 
@@ -67,9 +78,14 @@ func (d *Daemon) Start(ctx context.Context) error {
 
 	// Phase 2: Start rclone after a delay to let litestream complete its
 	// initial snapshot without competing for S3 bandwidth
-	rcloneDelay := 30 * time.Second
+	rcloneDelay := d.config.RcloneDelay
 	if len(d.litestream) == 0 {
 		rcloneDelay = 0
+	}
+	// Add jitter to prevent thundering herd on cluster-wide restarts (#34)
+	if rcloneDelay > 0 {
+		jitter := time.Duration(rand.Int63n(int64(rcloneDelay)))
+		rcloneDelay += jitter
 	}
 	eg.Go(func() error {
 		if rcloneDelay > 0 {

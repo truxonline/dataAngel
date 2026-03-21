@@ -9,23 +9,46 @@ import (
 
 // RcloneRunner manages periodic rclone sync operations
 type RcloneRunner struct {
-	Interval   time.Duration
-	FsPaths    []string
-	Bucket     string
-	S3Endpoint string
-	runner     CommandRunner
-	metrics    *SidecarMetrics
+	Interval        time.Duration
+	SyncTimeout     time.Duration
+	FsPaths         []string
+	Bucket          string
+	S3Endpoint      string
+	ExcludePatterns []string
+	Transfers       int
+	Checkers        int
+	Bwlimit         string
+	runner          CommandRunner
+	metrics         *SidecarMetrics
+}
+
+// RcloneRunnerConfig holds rclone runner configuration
+type RcloneRunnerConfig struct {
+	Interval        time.Duration
+	SyncTimeout     time.Duration
+	FsPaths         []string
+	Bucket          string
+	S3Endpoint      string
+	ExcludePatterns []string
+	Transfers       int
+	Checkers        int
+	Bwlimit         string
 }
 
 // NewRcloneRunner creates a new runner
-func NewRcloneRunner(interval time.Duration, fsPaths []string, bucket, s3Endpoint string) *RcloneRunner {
+func NewRcloneRunner(cfg RcloneRunnerConfig) *RcloneRunner {
 	return &RcloneRunner{
-		Interval:   interval,
-		FsPaths:    fsPaths,
-		Bucket:     bucket,
-		S3Endpoint: s3Endpoint,
-		runner:     &realCommandRunner{},
-		metrics:    GetMetrics(),
+		Interval:        cfg.Interval,
+		SyncTimeout:     cfg.SyncTimeout,
+		FsPaths:         cfg.FsPaths,
+		Bucket:          cfg.Bucket,
+		S3Endpoint:      cfg.S3Endpoint,
+		ExcludePatterns: cfg.ExcludePatterns,
+		Transfers:       cfg.Transfers,
+		Checkers:        cfg.Checkers,
+		Bwlimit:         cfg.Bwlimit,
+		runner:          &realCommandRunner{},
+		metrics:         GetMetrics(),
 	}
 }
 
@@ -58,6 +81,7 @@ func (r *RcloneRunner) Start(ctx context.Context) error {
 				} else {
 					r.metrics.SyncsTotal.Inc()
 					r.metrics.RcloneUp.Set(1)
+					r.metrics.LastSuccessfulRcloneSync.SetToCurrentTime()
 				}
 			}
 
@@ -87,15 +111,21 @@ func (r *RcloneRunner) syncOnce(ctx context.Context, fsPath string) error {
 		fsPath,
 		fmt.Sprintf(":s3:%s/%s", r.Bucket, s3Prefix),
 		"--s3-env-auth",
-		"--exclude", "*.db*",
-		"--exclude", ".*.db-litestream/**",
 		"--checksum",
 		"--min-age", "30s",
 		"--timeout", "120s",
 		"--contimeout", "30s",
-		"--transfers", "1",
-		"--checkers", "2",
+		"--transfers", fmt.Sprintf("%d", r.Transfers),
+		"--checkers", fmt.Sprintf("%d", r.Checkers),
 		"--low-level-retries", "3",
+	}
+
+	for _, pattern := range r.ExcludePatterns {
+		args = append(args, "--exclude", pattern)
+	}
+
+	if r.Bwlimit != "" {
+		args = append(args, "--bwlimit", r.Bwlimit)
 	}
 
 	if r.S3Endpoint != "" {
@@ -104,7 +134,7 @@ func (r *RcloneRunner) syncOnce(ctx context.Context, fsPath string) error {
 		args = append(args, "--s3-provider", "AWS")
 	}
 
-	syncCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	syncCtx, cancel := context.WithTimeout(ctx, r.SyncTimeout)
 	defer cancel()
 
 	return r.runner.Run(syncCtx, "rclone", args...)

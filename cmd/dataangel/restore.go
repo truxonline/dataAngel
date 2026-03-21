@@ -142,7 +142,7 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 }
 
 // restoreFilesystem restores a single filesystem path using rclone
-func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, timeout time.Duration) error {
+func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, timeout time.Duration, excludePatterns []string) error {
 	fsPath = strings.TrimSpace(fsPath)
 	if fsPath == "" {
 		return nil
@@ -157,10 +157,12 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, t
 		remotePath,
 		fsPath,
 		"--s3-env-auth",
-		"--exclude", "*.db*",
-		"--exclude", ".*.db-litestream/**",
 		"--timeout", "60s",
 		"--contimeout", "15s",
+	}
+
+	for _, pattern := range excludePatterns {
+		args = append(args, "--exclude", pattern)
 	}
 
 	if s3Endpoint != "" {
@@ -200,7 +202,7 @@ func RunRestore(ctx context.Context, config Config) error {
 
 	// Restore all filesystem paths
 	for _, fsPath := range config.FsPaths {
-		if err := restoreFilesystem(ctx, config.Bucket, config.S3Endpoint, fsPath, config.RestoreTimeout); err != nil {
+		if err := restoreFilesystem(ctx, config.Bucket, config.S3Endpoint, fsPath, config.RestoreTimeout, config.ExcludePatterns); err != nil {
 			return fmt.Errorf("failed to restore filesystem %s: %w", fsPath, err)
 		}
 	}

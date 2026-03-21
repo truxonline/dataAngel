@@ -134,7 +134,7 @@ func TestRestoreSQLiteSkipsEmpty(t *testing.T) {
 
 func TestRestoreFilesystemSkipsEmpty(t *testing.T) {
 	t.Run("empty fsPath is skipped", func(t *testing.T) {
-		err := restoreFilesystem(nil, "bucket", "", "", 0)
+		err := restoreFilesystem(nil, "bucket", "", "", 0, nil)
 		if err != nil {
 			t.Errorf("empty fsPath should return nil, got: %v", err)
 		}

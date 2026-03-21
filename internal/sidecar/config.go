@@ -16,6 +16,12 @@ type Config struct {
 	FsPaths         []string
 	YAMLPaths       []string
 	RcloneInterval  time.Duration
+	RcloneDelay     time.Duration
+	SyncTimeout     time.Duration
+	RcloneTransfers int
+	RcloneCheckers  int
+	RcloneBwlimit   string
+	ExcludePatterns []string
 	MetricsPort     int
 	MetricsEnabled  bool
 	ShutdownTimeout time.Duration

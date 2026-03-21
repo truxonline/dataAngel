@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"time"
 
@@ -86,7 +87,7 @@ func NewS3LockReal(ctx context.Context, cfg S3LockConfig) (*S3LockReal, error) {
 
 func (l *S3LockReal) Acquire(ctx context.Context, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	retryInterval := 2 * time.Second
+	baseInterval := 2 * time.Second
 
 	for time.Now().Before(deadline) {
 		locked, err := l.tryAcquire(ctx)
@@ -112,10 +113,12 @@ func (l *S3LockReal) Acquire(ctx context.Context, timeout time.Duration) error {
 			continue
 		}
 
+		// Jitter to avoid thundering herd on cluster-wide restarts (#34)
+		jitter := time.Duration(rand.Int63n(int64(baseInterval)))
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(retryInterval):
+		case <-time.After(baseInterval + jitter):
 		}
 	}
 

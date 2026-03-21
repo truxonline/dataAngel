@@ -23,8 +23,7 @@ func RunBackup(ctx context.Context, config Config, phaseManager *PhaseManager) e
 		return fmt.Errorf("failed to create lock: %w", err)
 	}
 
-	acquireTimeout := 5 * time.Minute
-	if err := s3Lock.Acquire(ctx, acquireTimeout); err != nil {
+	if err := s3Lock.Acquire(ctx, config.LockAcquireTimeout); err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer func() {
@@ -40,16 +39,19 @@ func RunBackup(ctx context.Context, config Config, phaseManager *PhaseManager) e
 
 	renewCtx, cancelRenew := context.WithCancel(ctx)
 	defer cancelRenew()
-	go renewLockPeriodically(renewCtx, s3Lock, 30*time.Second)
+	go renewLockPeriodically(renewCtx, s3Lock, 30*time.Second, config.LockTTL)
 
 	sidecarConfig := config.ToSidecarConfig()
 	daemon := sidecar.NewDaemon(sidecarConfig)
 	return daemon.Start(ctx)
 }
 
-func renewLockPeriodically(ctx context.Context, s3Lock *lock.S3LockReal, interval time.Duration) {
+func renewLockPeriodically(ctx context.Context, s3Lock *lock.S3LockReal, interval time.Duration, lockTTL time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
+	metrics := sidecar.GetMetrics()
+	lastRenewed := time.Now()
 
 	for {
 		select {
@@ -59,6 +61,18 @@ func renewLockPeriodically(ctx context.Context, s3Lock *lock.S3LockReal, interva
 			renewCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			if err := s3Lock.Renew(renewCtx); err != nil {
 				log.Printf("[dataangel] Failed to renew lock: %v", err)
+				if metrics != nil {
+					metrics.LockRenewalFailures.Inc()
+				}
+				// If renewal has been failing longer than TTL, assume lock
+				// is lost and exit to prevent split-brain (issue #33).
+				if time.Since(lastRenewed) > lockTTL {
+					cancel()
+					log.Printf("[dataangel] CRITICAL: lock renewal failed for longer than TTL (%v) — exiting to prevent split-brain", lockTTL)
+					return
+				}
+			} else {
+				lastRenewed = time.Now()
 			}
 			cancel()
 		}
