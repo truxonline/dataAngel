@@ -14,6 +14,10 @@ func TestLoadConfig(t *testing.T) {
 		"DATA_GUARD_SHUTDOWN_TIMEOUT", "DATA_GUARD_LOCK_TTL",
 		"DATA_GUARD_METRICS_ENABLED", "DATA_GUARD_METRICS_PORT",
 		"DATA_GUARD_FULL_LOGS", "DATA_GUARD_YAML_PATHS",
+		"DATA_GUARD_EXCLUDE_PATTERNS", "DATA_GUARD_SYNC_TIMEOUT",
+		"DATA_GUARD_LOCK_ACQUIRE_TIMEOUT", "DATA_GUARD_RCLONE_DELAY",
+		"DATA_GUARD_RCLONE_TRANSFERS", "DATA_GUARD_RCLONE_CHECKERS",
+		"DATA_GUARD_RCLONE_BWLIMIT",
 	}
 	saved := make(map[string]string)
 	for _, k := range envVars {
@@ -142,6 +146,81 @@ func TestLoadConfig(t *testing.T) {
 		}
 		if len(cfg.FsPaths) != 2 {
 			t.Errorf("expected 2 fs paths, got %d", len(cfg.FsPaths))
+		}
+	})
+
+	t.Run("S3 prefix collision in sqlite paths returns error", func(t *testing.T) {
+		clearEnv()
+		os.Setenv("DATA_GUARD_BUCKET", "b")
+		os.Setenv("DATA_GUARD_SQLITE_PATHS", "/db1/app.db,/db2/app.db")
+		os.Setenv("DATA_GUARD_DEPLOYMENT_NAME", "d")
+
+		_, err := LoadConfig()
+		if err == nil {
+			t.Fatal("expected error for S3 prefix collision")
+		}
+	})
+
+	t.Run("S3 prefix collision in fs paths returns error", func(t *testing.T) {
+		clearEnv()
+		os.Setenv("DATA_GUARD_BUCKET", "b")
+		os.Setenv("DATA_GUARD_FS_PATHS", "/volume1/data,/volume2/data")
+		os.Setenv("DATA_GUARD_DEPLOYMENT_NAME", "d")
+
+		_, err := LoadConfig()
+		if err == nil {
+			t.Fatal("expected error for S3 prefix collision")
+		}
+	})
+
+	t.Run("custom exclude patterns", func(t *testing.T) {
+		clearEnv()
+		os.Setenv("DATA_GUARD_BUCKET", "b")
+		os.Setenv("DATA_GUARD_SQLITE_PATHS", "/db")
+		os.Setenv("DATA_GUARD_DEPLOYMENT_NAME", "d")
+		os.Setenv("DATA_GUARD_EXCLUDE_PATTERNS", "*.log,*.tmp")
+
+		cfg, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(cfg.ExcludePatterns) != 2 || cfg.ExcludePatterns[0] != "*.log" {
+			t.Errorf("unexpected exclude patterns: %v", cfg.ExcludePatterns)
+		}
+	})
+
+	t.Run("default exclude patterns", func(t *testing.T) {
+		clearEnv()
+		os.Setenv("DATA_GUARD_BUCKET", "b")
+		os.Setenv("DATA_GUARD_SQLITE_PATHS", "/db")
+		os.Setenv("DATA_GUARD_DEPLOYMENT_NAME", "d")
+
+		cfg, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(cfg.ExcludePatterns) != 2 || cfg.ExcludePatterns[0] != "*.db*" {
+			t.Errorf("unexpected default exclude patterns: %v", cfg.ExcludePatterns)
+		}
+	})
+
+	t.Run("configurable sync timeout and lock acquire timeout", func(t *testing.T) {
+		clearEnv()
+		os.Setenv("DATA_GUARD_BUCKET", "b")
+		os.Setenv("DATA_GUARD_SQLITE_PATHS", "/db")
+		os.Setenv("DATA_GUARD_DEPLOYMENT_NAME", "d")
+		os.Setenv("DATA_GUARD_SYNC_TIMEOUT", "5m")
+		os.Setenv("DATA_GUARD_LOCK_ACQUIRE_TIMEOUT", "10m")
+
+		cfg, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.SyncTimeout.Minutes() != 5 {
+			t.Errorf("expected sync timeout 5m, got %v", cfg.SyncTimeout)
+		}
+		if cfg.LockAcquireTimeout.Minutes() != 10 {
+			t.Errorf("expected lock acquire timeout 10m, got %v", cfg.LockAcquireTimeout)
 		}
 	})
 }

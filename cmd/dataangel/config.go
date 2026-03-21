@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -36,8 +37,38 @@ type Config struct {
 	MetricsEnabled bool
 	MetricsPort    int
 
+	// Rclone configuration
+	ExcludePatterns    []string
+	SyncTimeout        time.Duration
+	LockAcquireTimeout time.Duration
+	RcloneDelay        time.Duration
+	RcloneTransfers    int
+	RcloneCheckers     int
+	RcloneBwlimit      string
+
 	// Logging
 	FullLogs bool
+}
+
+// detectPrefixCollisions checks for basename collisions in paths (issue #32).
+func detectPrefixCollisions(sqlitePaths, fsPaths []string) error {
+	seen := make(map[string]string)
+	for _, p := range sqlitePaths {
+		base := filepath.Base(p)
+		if existing, ok := seen[base]; ok {
+			return fmt.Errorf("S3 prefix collision: %q and %q both map to prefix %q", existing, p, base)
+		}
+		seen[base] = p
+	}
+	seen = make(map[string]string)
+	for _, p := range fsPaths {
+		base := filepath.Base(p)
+		if existing, ok := seen[base]; ok {
+			return fmt.Errorf("S3 prefix collision: %q and %q both map to prefix %q", existing, p, base)
+		}
+		seen[base] = p
+	}
+	return nil
 }
 
 // LoadConfig loads configuration from environment variables
@@ -148,20 +179,90 @@ func LoadConfig() (Config, error) {
 		return Config{}, fmt.Errorf("invalid DATA_GUARD_LOCK_TTL: %w", err)
 	}
 
+	// Parse exclude patterns (default: "*.db*,.*.db-litestream/**") (#31)
+	excludePatternsStr := os.Getenv("DATA_GUARD_EXCLUDE_PATTERNS")
+	var excludePatterns []string
+	if excludePatternsStr != "" {
+		excludePatterns = strings.Split(excludePatternsStr, ",")
+	} else {
+		excludePatterns = []string{"*.db*", ".*.db-litestream/**"}
+	}
+
+	// Parse sync timeout (default: 3m) (#36)
+	syncTimeoutStr := os.Getenv("DATA_GUARD_SYNC_TIMEOUT")
+	if syncTimeoutStr == "" {
+		syncTimeoutStr = "3m"
+	}
+	syncTimeout, err := time.ParseDuration(syncTimeoutStr)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid DATA_GUARD_SYNC_TIMEOUT: %w", err)
+	}
+
+	// Parse lock acquire timeout (default: 5m) (#36)
+	lockAcquireTimeoutStr := os.Getenv("DATA_GUARD_LOCK_ACQUIRE_TIMEOUT")
+	if lockAcquireTimeoutStr == "" {
+		lockAcquireTimeoutStr = "5m"
+	}
+	lockAcquireTimeout, err := time.ParseDuration(lockAcquireTimeoutStr)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid DATA_GUARD_LOCK_ACQUIRE_TIMEOUT: %w", err)
+	}
+
+	// Parse rclone delay (default: 30s) (#36)
+	rcloneDelayStr := os.Getenv("DATA_GUARD_RCLONE_DELAY")
+	if rcloneDelayStr == "" {
+		rcloneDelayStr = "30s"
+	}
+	rcloneDelay, err := time.ParseDuration(rcloneDelayStr)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid DATA_GUARD_RCLONE_DELAY: %w", err)
+	}
+
+	// Parse rclone transfers (default: 1) (#36)
+	rcloneTransfers := 1
+	if s := os.Getenv("DATA_GUARD_RCLONE_TRANSFERS"); s != "" {
+		if v, e := strconv.Atoi(s); e == nil && v > 0 {
+			rcloneTransfers = v
+		}
+	}
+
+	// Parse rclone checkers (default: 2) (#36)
+	rcloneCheckers := 2
+	if s := os.Getenv("DATA_GUARD_RCLONE_CHECKERS"); s != "" {
+		if v, e := strconv.Atoi(s); e == nil && v > 0 {
+			rcloneCheckers = v
+		}
+	}
+
+	// Parse rclone bandwidth limit (default: "" = unlimited) (#36)
+	rcloneBwlimit := os.Getenv("DATA_GUARD_RCLONE_BWLIMIT")
+
+	// Detect S3 prefix collisions (#32)
+	if err := detectPrefixCollisions(sqlitePaths, fsPaths); err != nil {
+		return Config{}, err
+	}
+
 	return Config{
-		Bucket:          bucket,
-		S3Endpoint:      os.Getenv("DATA_GUARD_S3_ENDPOINT"),
-		SqlitePaths:     sqlitePaths,
-		FsPaths:         fsPaths,
-		YAMLPaths:       yamlPaths,
-		RestoreTimeout:  restoreTimeout,
-		DeploymentName:  deploymentName,
-		LockTTL:         lockTTL,
-		RcloneInterval:  rcloneInterval,
-		ShutdownTimeout: shutdownTimeout,
-		MetricsEnabled:  metricsEnabled,
-		MetricsPort:     metricsPort,
-		FullLogs:        fullLogs,
+		Bucket:             bucket,
+		S3Endpoint:         os.Getenv("DATA_GUARD_S3_ENDPOINT"),
+		SqlitePaths:        sqlitePaths,
+		FsPaths:            fsPaths,
+		YAMLPaths:          yamlPaths,
+		RestoreTimeout:     restoreTimeout,
+		DeploymentName:     deploymentName,
+		LockTTL:            lockTTL,
+		LockAcquireTimeout: lockAcquireTimeout,
+		RcloneInterval:     rcloneInterval,
+		RcloneDelay:        rcloneDelay,
+		SyncTimeout:        syncTimeout,
+		RcloneTransfers:    rcloneTransfers,
+		RcloneCheckers:     rcloneCheckers,
+		RcloneBwlimit:      rcloneBwlimit,
+		ExcludePatterns:    excludePatterns,
+		ShutdownTimeout:    shutdownTimeout,
+		MetricsEnabled:     metricsEnabled,
+		MetricsPort:        metricsPort,
+		FullLogs:           fullLogs,
 	}, nil
 }
 
@@ -174,6 +275,12 @@ func (c Config) ToSidecarConfig() sidecar.Config {
 		FsPaths:         c.FsPaths,
 		YAMLPaths:       c.YAMLPaths,
 		RcloneInterval:  c.RcloneInterval,
+		RcloneDelay:     c.RcloneDelay,
+		SyncTimeout:     c.SyncTimeout,
+		RcloneTransfers: c.RcloneTransfers,
+		RcloneCheckers:  c.RcloneCheckers,
+		RcloneBwlimit:   c.RcloneBwlimit,
+		ExcludePatterns: c.ExcludePatterns,
 		ShutdownTimeout: c.ShutdownTimeout,
 		MetricsEnabled:  c.MetricsEnabled,
 		MetricsPort:     c.MetricsPort,
