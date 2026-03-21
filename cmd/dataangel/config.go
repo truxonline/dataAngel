@@ -23,8 +23,9 @@ type Config struct {
 	YAMLPaths   []string
 
 	// Lock configuration
-	DeploymentName string
-	LockTTL        time.Duration
+	DeploymentName     string
+	LockTTL            time.Duration
+	LockEnabled        bool
 
 	// Restore configuration
 	RestoreTimeout time.Duration
@@ -179,6 +180,15 @@ func LoadConfig() (Config, error) {
 		return Config{}, fmt.Errorf("invalid DATA_GUARD_LOCK_TTL: %w", err)
 	}
 
+	// Parse lock enabled (default: true)
+	lockEnabled := true
+	if s := os.Getenv("DATA_GUARD_LOCK_ENABLED"); s != "" {
+		lockEnabled, err = strconv.ParseBool(s)
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid DATA_GUARD_LOCK_ENABLED: %w", err)
+		}
+	}
+
 	// Parse exclude patterns (default: "*.db*,.*.db-litestream/**") (#31)
 	excludePatternsStr := os.Getenv("DATA_GUARD_EXCLUDE_PATTERNS")
 	var excludePatterns []string
@@ -251,6 +261,7 @@ func LoadConfig() (Config, error) {
 		RestoreTimeout:     restoreTimeout,
 		DeploymentName:     deploymentName,
 		LockTTL:            lockTTL,
+		LockEnabled:        lockEnabled,
 		LockAcquireTimeout: lockAcquireTimeout,
 		RcloneInterval:     rcloneInterval,
 		RcloneDelay:        rcloneDelay,
