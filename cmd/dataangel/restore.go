@@ -165,7 +165,7 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 	}
 
 	// DB doesn't exist (or was removed) — attempt litestream restore from S3
-	log.Printf("[dataangel] preparing litestream restore config...")
+	log.Printf("[dataangel] preparing litestream restore from S3 (timeout: %v)...", timeout)
 	configPath, err := generateLitestreamConfig(dbPath, bucket, s3Endpoint)
 	if err != nil {
 		return err
@@ -235,7 +235,7 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, t
 	}
 
 	start := time.Now()
-	log.Printf("[dataangel] restore filesystem=%s", fsPath)
+	log.Printf("[dataangel] restore filesystem=%s (timeout: %v)", fsPath, timeout)
 
 	remotePath := fmt.Sprintf(":s3:%s/%s", bucket, filepath.Base(fsPath))
 

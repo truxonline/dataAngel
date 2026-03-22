@@ -104,10 +104,10 @@ func LoadConfig() (Config, error) {
 		yamlPaths = strings.Split(yamlPathsStr, ",")
 	}
 
-	// Parse restore timeout (default: 10m)
+	// Parse restore timeout (default: 30m)
 	restoreTimeoutStr := os.Getenv("DATA_GUARD_RESTORE_TIMEOUT")
 	if restoreTimeoutStr == "" {
-		restoreTimeoutStr = "10m"
+		restoreTimeoutStr = "30m"
 	}
 	restoreTimeout, err := time.ParseDuration(restoreTimeoutStr)
 	if err != nil {

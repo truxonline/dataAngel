@@ -84,8 +84,8 @@ func TestLoadConfig(t *testing.T) {
 		if len(cfg.SqlitePaths) != 1 || cfg.SqlitePaths[0] != "/app/data/test.db" {
 			t.Errorf("unexpected sqlite paths: %v", cfg.SqlitePaths)
 		}
-		if cfg.RestoreTimeout.Minutes() != 10 {
-			t.Errorf("expected default restore timeout 10m, got %v", cfg.RestoreTimeout)
+		if cfg.RestoreTimeout.Minutes() != 30 {
+			t.Errorf("expected default restore timeout 30m, got %v", cfg.RestoreTimeout)
 		}
 		if cfg.LockTTL.Seconds() != 60 {
 			t.Errorf("expected default lock TTL 60s, got %v", cfg.LockTTL)
