@@ -26,6 +26,9 @@ func main() {
 	go func() {
 		sig := <-sigChan
 		log.Printf("[dataangel] Received signal: %v", sig)
+		// Write clean shutdown sentinels so the next startup can skip
+		// expensive DB validation (issue #42).
+		writeCleanShutdownSentinels(config.SqlitePaths)
 		cancel()
 	}()
 

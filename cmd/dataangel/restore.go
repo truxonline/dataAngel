@@ -106,6 +106,22 @@ func formatSize(bytes int64) string {
 	}
 }
 
+// cleanShutdownSentinel returns the sentinel file path for a given DB path.
+func cleanShutdownSentinel(dbPath string) string {
+	return dbPath + ".dataangel-clean"
+}
+
+// writeCleanShutdownSentinels writes sentinel files for all SQLite paths,
+// indicating the previous shutdown was graceful (issue #42).
+func writeCleanShutdownSentinels(sqlitePaths []string) {
+	for _, dbPath := range sqlitePaths {
+		sentinel := cleanShutdownSentinel(dbPath)
+		if err := os.WriteFile(sentinel, []byte("clean"), 0644); err != nil {
+			log.Printf("[dataangel] WARNING: failed to write clean shutdown sentinel: %v", err)
+		}
+	}
+}
+
 // logFileProgress logs the size of a file periodically while it's being
 // written (e.g. during litestream restore). Stops when ctx is cancelled.
 func logFileProgress(ctx context.Context, path string, operation string, interval time.Duration) {
@@ -144,10 +160,19 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 	if dbExisted {
 		log.Printf("[dataangel] database found on disk: %s (size: %s)", dbPath, formatSize(info.Size()))
 
+		// Fastest path: if previous shutdown was clean, skip validation
+		// entirely. The sentinel file is written on SIGTERM (issue #42).
+		sentinel := cleanShutdownSentinel(dbPath)
+		if _, err := os.Stat(sentinel); err == nil {
+			os.Remove(sentinel)
+			log.Printf("[dataangel] clean shutdown detected, skipping validation: %s", dbPath)
+			return nil
+		}
+
 		// Fast path: DB exists, do a quick check instead of full integrity
 		// check. PRAGMA quick_check validates B-tree structure without
 		// reading every page — seconds vs 30+ min on large DBs (#39).
-		log.Printf("[dataangel] running quick validation (PRAGMA quick_check)...")
+		log.Printf("[dataangel] no clean shutdown sentinel, running quick validation (PRAGMA quick_check)...")
 		checkStart := time.Now()
 		if isSQLiteQuickCheck(dbPath) {
 			log.Printf("[dataangel] database valid, skipping restore: %s (validated in %v)", dbPath, time.Since(checkStart).Round(time.Millisecond))

@@ -199,7 +199,7 @@ func TestLoadConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(cfg.ExcludePatterns) != 2 || cfg.ExcludePatterns[0] != "*.db*" {
+		if len(cfg.ExcludePatterns) != 3 || cfg.ExcludePatterns[0] != "*.db*" {
 			t.Errorf("unexpected default exclude patterns: %v", cfg.ExcludePatterns)
 		}
 	})

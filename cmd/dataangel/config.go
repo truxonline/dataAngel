@@ -195,7 +195,7 @@ func LoadConfig() (Config, error) {
 	if excludePatternsStr != "" {
 		excludePatterns = strings.Split(excludePatternsStr, ",")
 	} else {
-		excludePatterns = []string{"*.db*", ".*.db-litestream/**"}
+		excludePatterns = []string{"*.db*", ".*.db-litestream/**", "*.dataangel-clean"}
 	}
 
 	// Parse sync timeout (default: 3m) (#36)
