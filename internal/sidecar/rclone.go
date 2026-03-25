@@ -3,6 +3,7 @@ package sidecar
 import (
 	"context"
 	"fmt"
+	"log"
 	"path/filepath"
 	"time"
 )
@@ -66,6 +67,17 @@ func (r *RcloneRunner) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			// Final sync before shutdown to capture changes since last
+			// periodic sync, preventing data loss on RollingUpdate with
+			// emptyDir (issue #43).
+			log.Printf("[dataangel] rclone: performing final sync before shutdown...")
+			finalCtx, finalCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			if err := r.syncAll(finalCtx); err != nil {
+				log.Printf("[dataangel] rclone: final sync failed: %v", err)
+			} else {
+				log.Printf("[dataangel] rclone: final sync complete")
+			}
+			finalCancel()
 			return ctx.Err()
 		case <-ticker.C:
 			start := time.Now()
