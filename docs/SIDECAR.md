@@ -56,9 +56,22 @@ All configuration via environment variables:
 | `DATA_GUARD_SQLITE_PATHS` | No | - | CSV of SQLite paths to replicate |
 | `DATA_GUARD_FS_PATHS` | No | - | CSV of filesystem paths to sync |
 | `DATA_GUARD_YAML_PATHS` | No | - | CSV of YAML glob patterns to sync |
-| `DATA_GUARD_RCLONE_INTERVAL` | No | 60 | Sync interval in seconds |
-| `DATA_GUARD_METRICS_PORT` | No | 9090 | Prometheus metrics port |
-| `DATA_GUARD_SHUTDOWN_TIMEOUT` | No | 15 | Graceful shutdown timeout in seconds |
+| `DATA_GUARD_RESTORE_TIMEOUT` | No | `30m` | Max duration for a single restore operation |
+| `DATA_GUARD_RESTORE_OVERWRITE` | No | `false` | If `true`, overwrite newer local files during restore (disables `--update`) |
+| `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Sync interval |
+| `DATA_GUARD_RCLONE_DELAY` | No | `30s` | Initial delay before first sync |
+| `DATA_GUARD_RCLONE_TRANSFERS` | No | `1` | Parallel transfer count |
+| `DATA_GUARD_RCLONE_CHECKERS` | No | `2` | Parallel checker count |
+| `DATA_GUARD_RCLONE_BWLIMIT` | No | - | Bandwidth limit (e.g., `10M`) |
+| `DATA_GUARD_SYNC_TIMEOUT` | No | `3m` | Timeout per sync operation |
+| `DATA_GUARD_EXCLUDE_PATTERNS` | No | `*.db*,.*.db-litestream/**,*.dataangel-clean` | Rclone exclude patterns (comma-separated) |
+| `DATA_GUARD_LOCK_ENABLED` | No | `true` | Disable distributed lock (single-replica) |
+| `DATA_GUARD_LOCK_TTL` | No | `60s` | Lock expiration timeout |
+| `DATA_GUARD_LOCK_ACQUIRE_TIMEOUT` | No | `5m` | Max wait to acquire the lock on startup |
+| `DATA_GUARD_METRICS_ENABLED` | No | `true` | Enable Prometheus metrics server |
+| `DATA_GUARD_METRICS_PORT` | No | `9090` | Prometheus metrics port |
+| `DATA_GUARD_SHUTDOWN_TIMEOUT` | No | `15s` | Graceful shutdown timeout |
+| `DATA_GUARD_FULL_LOGS` | No | `false` | Verbose logging |
 
 ## Usage
 

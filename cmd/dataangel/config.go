@@ -28,7 +28,8 @@ type Config struct {
 	LockEnabled        bool
 
 	// Restore configuration
-	RestoreTimeout time.Duration
+	RestoreTimeout  time.Duration
+	RestoreOverwrite bool // if true, skip --update (overwrite local files unconditionally)
 
 	// Backup daemon configuration
 	RcloneInterval  time.Duration
@@ -102,6 +103,16 @@ func LoadConfig() (Config, error) {
 	var yamlPaths []string
 	if yamlPathsStr != "" {
 		yamlPaths = strings.Split(yamlPathsStr, ",")
+	}
+
+	// Parse restore overwrite (default: false — use --update to preserve newer local files, #44)
+	restoreOverwrite := false
+	if s := os.Getenv("DATA_GUARD_RESTORE_OVERWRITE"); s != "" {
+		var parseErr error
+		restoreOverwrite, parseErr = strconv.ParseBool(s)
+		if parseErr != nil {
+			return Config{}, fmt.Errorf("invalid DATA_GUARD_RESTORE_OVERWRITE: %w", parseErr)
+		}
 	}
 
 	// Parse restore timeout (default: 30m)
@@ -259,6 +270,7 @@ func LoadConfig() (Config, error) {
 		FsPaths:            fsPaths,
 		YAMLPaths:          yamlPaths,
 		RestoreTimeout:     restoreTimeout,
+		RestoreOverwrite:   restoreOverwrite,
 		DeploymentName:     deploymentName,
 		LockTTL:            lockTTL,
 		LockEnabled:        lockEnabled,

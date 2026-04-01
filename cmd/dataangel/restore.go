@@ -252,16 +252,10 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 	return nil
 }
 
-// restoreFilesystem restores a single filesystem path using rclone
-func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, timeout time.Duration, excludePatterns []string) error {
-	fsPath = strings.TrimSpace(fsPath)
-	if fsPath == "" {
-		return nil
-	}
-
-	start := time.Now()
-	log.Printf("[dataangel] restore filesystem=%s (timeout: %v)", fsPath, timeout)
-
+// buildRcloneRestoreArgs builds the rclone copy argument list for a filesystem restore.
+// When restoreOverwrite is false (default), --update is added to skip overwriting
+// local files that are newer than the S3 source (issue #44).
+func buildRcloneRestoreArgs(bucket, s3Endpoint, fsPath string, excludePatterns []string, restoreOverwrite bool) []string {
 	remotePath := fmt.Sprintf(":s3:%s/%s", bucket, filepath.Base(fsPath))
 
 	args := []string{
@@ -275,6 +269,10 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, t
 		"--stats-one-line",
 	}
 
+	if !restoreOverwrite {
+		args = append(args, "--update")
+	}
+
 	for _, pattern := range excludePatterns {
 		args = append(args, "--exclude", pattern)
 	}
@@ -284,6 +282,21 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, t
 	} else {
 		args = append(args, "--s3-provider", "AWS")
 	}
+
+	return args
+}
+
+// restoreFilesystem restores a single filesystem path using rclone
+func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, timeout time.Duration, excludePatterns []string, restoreOverwrite bool) error {
+	fsPath = strings.TrimSpace(fsPath)
+	if fsPath == "" {
+		return nil
+	}
+
+	start := time.Now()
+	log.Printf("[dataangel] restore filesystem=%s (timeout: %v)", fsPath, timeout)
+
+	args := buildRcloneRestoreArgs(bucket, s3Endpoint, fsPath, excludePatterns, restoreOverwrite)
 
 	restoreCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -316,7 +329,7 @@ func RunRestore(ctx context.Context, config Config) error {
 
 	// Restore all filesystem paths
 	for _, fsPath := range config.FsPaths {
-		if err := restoreFilesystem(ctx, config.Bucket, config.S3Endpoint, fsPath, config.RestoreTimeout, config.ExcludePatterns); err != nil {
+		if err := restoreFilesystem(ctx, config.Bucket, config.S3Endpoint, fsPath, config.RestoreTimeout, config.ExcludePatterns, config.RestoreOverwrite); err != nil {
 			return fmt.Errorf("failed to restore filesystem %s: %w", fsPath, err)
 		}
 	}

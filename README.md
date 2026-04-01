@@ -294,8 +294,18 @@ The unified `dataangel` container uses the same environment variables for both p
 | `DATA_GUARD_YAML_PATHS` | No | - | Comma-separated YAML paths to validate |
 | `DATA_GUARD_S3_ENDPOINT` | No | - | Custom S3 endpoint URL (e.g., MinIO) |
 | `DATA_GUARD_DEPLOYMENT_NAME` | Yes | - | Deployment name (for distributed lock) |
-| `DATA_GUARD_LOCK_TTL` | No | `60s` | Lock expiration timeout (v0.3.0+) |
-| `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Rclone sync interval (Phase 2) |
+| `DATA_GUARD_LOCK_TTL` | No | `60s` | Lock expiration timeout |
+| `DATA_GUARD_LOCK_ENABLED` | No | `true` | Disable distributed lock (single-replica) |
+| `DATA_GUARD_LOCK_ACQUIRE_TIMEOUT` | No | `5m` | Max wait to acquire the lock on startup |
+| `DATA_GUARD_RESTORE_TIMEOUT` | No | `30m` | Max duration for a single restore operation |
+| `DATA_GUARD_RESTORE_OVERWRITE` | No | `false` | If `true`, overwrite newer local files during restore (disables `--update`) |
+| `DATA_GUARD_RCLONE_INTERVAL` | No | `60s` | Rclone sync interval |
+| `DATA_GUARD_RCLONE_DELAY` | No | `30s` | Initial delay before first rclone sync |
+| `DATA_GUARD_RCLONE_TRANSFERS` | No | `1` | Rclone parallel transfer count |
+| `DATA_GUARD_RCLONE_CHECKERS` | No | `2` | Rclone parallel checker count |
+| `DATA_GUARD_RCLONE_BWLIMIT` | No | - | Rclone bandwidth limit (e.g., `10M`) |
+| `DATA_GUARD_SYNC_TIMEOUT` | No | `3m` | Timeout per rclone sync operation |
+| `DATA_GUARD_EXCLUDE_PATTERNS` | No | `*.db*,.*.db-litestream/**,*.dataangel-clean` | Comma-separated rclone exclude patterns |
 | `DATA_GUARD_METRICS_ENABLED` | No | `true` | Enable Prometheus metrics server |
 | `DATA_GUARD_METRICS_PORT` | No | `9090` | Prometheus metrics port |
 | `DATA_GUARD_SHUTDOWN_TIMEOUT` | No | `15s` | Graceful shutdown timeout |

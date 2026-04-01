@@ -174,9 +174,70 @@ func TestRestoreSQLiteSkipsEmpty(t *testing.T) {
 
 func TestRestoreFilesystemSkipsEmpty(t *testing.T) {
 	t.Run("empty fsPath is skipped", func(t *testing.T) {
-		err := restoreFilesystem(nil, "bucket", "", "", 0, nil)
+		err := restoreFilesystem(nil, "bucket", "", "", 0, nil, false)
 		if err != nil {
 			t.Errorf("empty fsPath should return nil, got: %v", err)
+		}
+	})
+}
+
+func TestBuildRcloneRestoreArgs(t *testing.T) {
+	t.Run("--update present by default", func(t *testing.T) {
+		args := buildRcloneRestoreArgs("my-bucket", "", "/config", nil, false)
+		found := false
+		for _, a := range args {
+			if a == "--update" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected --update in args when restoreOverwrite=false, got: %v", args)
+		}
+	})
+
+	t.Run("--update absent when restoreOverwrite=true", func(t *testing.T) {
+		args := buildRcloneRestoreArgs("my-bucket", "", "/config", nil, true)
+		for _, a := range args {
+			if a == "--update" {
+				t.Errorf("expected no --update in args when restoreOverwrite=true, got: %v", args)
+			}
+		}
+	})
+
+	t.Run("S3 path uses filepath.Base", func(t *testing.T) {
+		args := buildRcloneRestoreArgs("bucket", "", "/home/app/config", nil, false)
+		if args[1] != ":s3:bucket/config" {
+			t.Errorf("expected S3 remote ':s3:bucket/config', got %q", args[1])
+		}
+	})
+
+	t.Run("MinIO endpoint adds provider flags", func(t *testing.T) {
+		args := buildRcloneRestoreArgs("bucket", "http://minio:9000", "/data", nil, false)
+		hasProvider, hasEndpoint := false, false
+		for i, a := range args {
+			if a == "--s3-provider" && i+1 < len(args) && args[i+1] == "Minio" {
+				hasProvider = true
+			}
+			if a == "--s3-endpoint" && i+1 < len(args) && args[i+1] == "http://minio:9000" {
+				hasEndpoint = true
+			}
+		}
+		if !hasProvider || !hasEndpoint {
+			t.Errorf("expected MinIO provider/endpoint flags, got: %v", args)
+		}
+	})
+
+	t.Run("exclude patterns are forwarded", func(t *testing.T) {
+		args := buildRcloneRestoreArgs("bucket", "", "/data", []string{"*.log", "*.tmp"}, false)
+		var excludes []string
+		for i, a := range args {
+			if a == "--exclude" && i+1 < len(args) {
+				excludes = append(excludes, args[i+1])
+			}
+		}
+		if len(excludes) != 2 || excludes[0] != "*.log" || excludes[1] != "*.tmp" {
+			t.Errorf("unexpected exclude patterns: %v", excludes)
 		}
 	})
 }

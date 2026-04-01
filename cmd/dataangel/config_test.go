@@ -17,7 +17,7 @@ func TestLoadConfig(t *testing.T) {
 		"DATA_GUARD_EXCLUDE_PATTERNS", "DATA_GUARD_SYNC_TIMEOUT",
 		"DATA_GUARD_LOCK_ACQUIRE_TIMEOUT", "DATA_GUARD_RCLONE_DELAY",
 		"DATA_GUARD_RCLONE_TRANSFERS", "DATA_GUARD_RCLONE_CHECKERS",
-		"DATA_GUARD_RCLONE_BWLIMIT",
+		"DATA_GUARD_RCLONE_BWLIMIT", "DATA_GUARD_RESTORE_OVERWRITE",
 	}
 	saved := make(map[string]string)
 	for _, k := range envVars {
@@ -201,6 +201,50 @@ func TestLoadConfig(t *testing.T) {
 		}
 		if len(cfg.ExcludePatterns) != 3 || cfg.ExcludePatterns[0] != "*.db*" {
 			t.Errorf("unexpected default exclude patterns: %v", cfg.ExcludePatterns)
+		}
+	})
+
+	t.Run("restore overwrite defaults to false", func(t *testing.T) {
+		clearEnv()
+		os.Setenv("DATA_GUARD_BUCKET", "b")
+		os.Setenv("DATA_GUARD_SQLITE_PATHS", "/db")
+		os.Setenv("DATA_GUARD_DEPLOYMENT_NAME", "d")
+
+		cfg, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.RestoreOverwrite {
+			t.Error("RestoreOverwrite should default to false")
+		}
+	})
+
+	t.Run("restore overwrite can be enabled", func(t *testing.T) {
+		clearEnv()
+		os.Setenv("DATA_GUARD_BUCKET", "b")
+		os.Setenv("DATA_GUARD_SQLITE_PATHS", "/db")
+		os.Setenv("DATA_GUARD_DEPLOYMENT_NAME", "d")
+		os.Setenv("DATA_GUARD_RESTORE_OVERWRITE", "true")
+
+		cfg, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !cfg.RestoreOverwrite {
+			t.Error("RestoreOverwrite should be true when DATA_GUARD_RESTORE_OVERWRITE=true")
+		}
+	})
+
+	t.Run("invalid restore overwrite returns error", func(t *testing.T) {
+		clearEnv()
+		os.Setenv("DATA_GUARD_BUCKET", "b")
+		os.Setenv("DATA_GUARD_SQLITE_PATHS", "/db")
+		os.Setenv("DATA_GUARD_DEPLOYMENT_NAME", "d")
+		os.Setenv("DATA_GUARD_RESTORE_OVERWRITE", "notabool")
+
+		_, err := LoadConfig()
+		if err == nil {
+			t.Fatal("expected error for invalid DATA_GUARD_RESTORE_OVERWRITE")
 		}
 	})
 
