@@ -230,18 +230,22 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 	log.Printf("[dataangel] litestream completed in %v", time.Since(litestreamStart).Round(time.Millisecond))
 
 	// Check what actually happened after litestream exited 0.
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+	if _, err := os.Stat(dbPath); err != nil {
 		if dbExisted {
 			// Corrupted DB was removed but no S3 backup exists (issue #20).
 			return fmt.Errorf("CRITICAL: corrupted database was removed but no S3 backup exists for %s — refusing to start with empty database", dbPath)
 		}
-		// First deployment: no backup yet, app will create fresh DB (issue #27).
+		// First deployment or transient FS error (ESTALE/EIO): no file accessible.
 		log.Printf("[dataangel] no S3 backup found for %s, app will create fresh database", dbPath)
 		return nil
 	}
 
 	// DB was restored from S3 — do full integrity check (issue #26).
-	restoredInfo, _ := os.Stat(dbPath)
+	restoredInfo, err := os.Stat(dbPath)
+	if err != nil {
+		log.Printf("[dataangel] warning: cannot stat %s after litestream exited 0: %v — skipping integrity check", dbPath, err)
+		return nil
+	}
 	log.Printf("[dataangel] database restored from S3: %s (size: %s), running full integrity check...", dbPath, formatSize(restoredInfo.Size()))
 	checkStart := time.Now()
 	if !isSQLiteHealthy(dbPath) {
