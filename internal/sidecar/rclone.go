@@ -82,10 +82,10 @@ func (r *RcloneRunner) Start(ctx context.Context) error {
 		case <-ticker.C:
 			start := time.Now()
 			err := r.syncAll(ctx)
+			elapsed := time.Since(start).Round(time.Millisecond)
 
 			if r.metrics != nil {
-				duration := time.Since(start).Seconds()
-				r.metrics.SyncDuration.Observe(duration)
+				r.metrics.SyncDuration.Observe(elapsed.Seconds())
 
 				if err != nil {
 					r.metrics.SyncsFailed.Inc()
@@ -98,7 +98,9 @@ func (r *RcloneRunner) Start(ctx context.Context) error {
 			}
 
 			if err != nil {
-				fmt.Printf("rclone sync error: %v\n", err)
+				log.Printf("[dataangel] rclone: sync error after %v: %v", elapsed, err)
+			} else {
+				log.Printf("[dataangel] rclone: sync complete (%v)", elapsed)
 			}
 		}
 	}
@@ -130,6 +132,7 @@ func (r *RcloneRunner) syncOnce(ctx context.Context, fsPath string) error {
 		"--transfers", fmt.Sprintf("%d", r.Transfers),
 		"--checkers", fmt.Sprintf("%d", r.Checkers),
 		"--low-level-retries", "3",
+		"--stats-one-line",
 	}
 
 	for _, pattern := range r.ExcludePatterns {
