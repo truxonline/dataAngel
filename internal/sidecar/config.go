@@ -10,21 +10,22 @@ import (
 
 // Config holds sidecar daemon configuration
 type Config struct {
-	Bucket          string
-	S3Endpoint      string
-	SqlitePaths     []string
-	FsPaths         []string
-	YAMLPaths       []string
-	RcloneInterval  time.Duration
-	RcloneDelay     time.Duration
-	SyncTimeout     time.Duration
-	RcloneTransfers int
-	RcloneCheckers  int
-	RcloneBwlimit   string
-	ExcludePatterns []string
-	MetricsPort     int
-	MetricsEnabled  bool
-	ShutdownTimeout time.Duration
+	Bucket           string
+	S3Endpoint       string
+	SqlitePaths      []string
+	FsPaths          []string
+	YAMLPaths        []string
+	RcloneInterval   time.Duration
+	RcloneDelay      time.Duration
+	SyncTimeout      time.Duration
+	RcloneTransfers  int
+	RcloneCheckers   int
+	RcloneBwlimit    string
+	ExcludePatterns  []string
+	MetricsPort      int
+	MetricsEnabled   bool
+	ShutdownTimeout  time.Duration
+	SnapshotInterval string
 }
 
 // LoadFromEnv loads configuration from environment variables

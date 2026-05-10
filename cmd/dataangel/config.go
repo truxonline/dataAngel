@@ -28,8 +28,9 @@ type Config struct {
 	LockEnabled        bool
 
 	// Restore configuration
-	RestoreTimeout  time.Duration
-	RestoreOverwrite bool // if true, skip --update (overwrite local files unconditionally)
+	RestoreTimeout   time.Duration
+	RestoreOverwrite bool   // if true, skip --update (overwrite local files unconditionally)
+	SnapshotInterval string // litestream snapshot-interval, caps WAL chain length
 
 	// Backup daemon configuration
 	RcloneInterval  time.Duration
@@ -113,6 +114,12 @@ func LoadConfig() (Config, error) {
 		if parseErr != nil {
 			return Config{}, fmt.Errorf("invalid DATA_GUARD_RESTORE_OVERWRITE: %w", parseErr)
 		}
+	}
+
+	// Parse snapshot interval (default: 24h) — caps WAL chain length to bound restore time (#47)
+	snapshotInterval := os.Getenv("DATA_GUARD_SNAPSHOT_INTERVAL")
+	if snapshotInterval == "" {
+		snapshotInterval = "24h"
 	}
 
 	// Parse restore timeout (default: 30m)
@@ -271,6 +278,7 @@ func LoadConfig() (Config, error) {
 		YAMLPaths:          yamlPaths,
 		RestoreTimeout:     restoreTimeout,
 		RestoreOverwrite:   restoreOverwrite,
+		SnapshotInterval:   snapshotInterval,
 		DeploymentName:     deploymentName,
 		LockTTL:            lockTTL,
 		LockEnabled:        lockEnabled,
@@ -292,20 +300,21 @@ func LoadConfig() (Config, error) {
 // ToSidecarConfig converts to internal/sidecar.Config for the backup phase
 func (c Config) ToSidecarConfig() sidecar.Config {
 	return sidecar.Config{
-		Bucket:          c.Bucket,
-		S3Endpoint:      c.S3Endpoint,
-		SqlitePaths:     c.SqlitePaths,
-		FsPaths:         c.FsPaths,
-		YAMLPaths:       c.YAMLPaths,
-		RcloneInterval:  c.RcloneInterval,
-		RcloneDelay:     c.RcloneDelay,
-		SyncTimeout:     c.SyncTimeout,
-		RcloneTransfers: c.RcloneTransfers,
-		RcloneCheckers:  c.RcloneCheckers,
-		RcloneBwlimit:   c.RcloneBwlimit,
-		ExcludePatterns: c.ExcludePatterns,
-		ShutdownTimeout: c.ShutdownTimeout,
-		MetricsEnabled:  c.MetricsEnabled,
-		MetricsPort:     c.MetricsPort,
+		Bucket:           c.Bucket,
+		S3Endpoint:       c.S3Endpoint,
+		SqlitePaths:      c.SqlitePaths,
+		FsPaths:          c.FsPaths,
+		YAMLPaths:        c.YAMLPaths,
+		RcloneInterval:   c.RcloneInterval,
+		RcloneDelay:      c.RcloneDelay,
+		SyncTimeout:      c.SyncTimeout,
+		RcloneTransfers:  c.RcloneTransfers,
+		RcloneCheckers:   c.RcloneCheckers,
+		RcloneBwlimit:    c.RcloneBwlimit,
+		ExcludePatterns:  c.ExcludePatterns,
+		ShutdownTimeout:  c.ShutdownTimeout,
+		MetricsEnabled:   c.MetricsEnabled,
+		MetricsPort:      c.MetricsPort,
+		SnapshotInterval: c.SnapshotInterval,
 	}
 }

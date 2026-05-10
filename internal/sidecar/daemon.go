@@ -48,7 +48,7 @@ func NewDaemon(config Config) *Daemon {
 func (d *Daemon) initializeConfigs() error {
 	for i, dbPath := range d.config.SqlitePaths {
 		configPath := d.litestream[i].ConfigPath
-		if err := GenerateLitestreamConfig(dbPath, d.config.Bucket, d.config.S3Endpoint, configPath); err != nil {
+		if err := GenerateLitestreamConfig(dbPath, d.config.Bucket, d.config.S3Endpoint, configPath, d.config.SnapshotInterval); err != nil {
 			return fmt.Errorf("failed to generate litestream config for %s: %w", dbPath, err)
 		}
 		log.Printf("Generated litestream config: %s", configPath)

@@ -13,7 +13,7 @@ func TestGenerateLitestreamConfig(t *testing.T) {
 		tmpDir := t.TempDir()
 		configPath := filepath.Join(tmpDir, "litestream.yml")
 
-		err := GenerateLitestreamConfig("/data/app.db", "test-bucket", "", configPath)
+		err := GenerateLitestreamConfig("/data/app.db", "test-bucket", "", configPath, "24h")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -43,13 +43,17 @@ func TestGenerateLitestreamConfig(t *testing.T) {
 		if config.DBs[0].Replicas[0].URL != "s3://test-bucket/app.db" {
 			t.Errorf("expected URL s3://test-bucket/app.db, got %s", config.DBs[0].Replicas[0].URL)
 		}
+
+		if config.DBs[0].Replicas[0].SnapshotInterval != "24h" {
+			t.Errorf("expected snapshot-interval 24h, got %s", config.DBs[0].Replicas[0].SnapshotInterval)
+		}
 	})
 
 	t.Run("should include custom S3 endpoint", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		configPath := filepath.Join(tmpDir, "litestream.yml")
 
-		err := GenerateLitestreamConfig("/data/app.db", "test-bucket", "https://minio.local:9000", configPath)
+		err := GenerateLitestreamConfig("/data/app.db", "test-bucket", "https://minio.local:9000", configPath, "24h")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -69,11 +73,35 @@ func TestGenerateLitestreamConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("should omit snapshot-interval when empty", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "litestream.yml")
+
+		err := GenerateLitestreamConfig("/data/app.db", "test-bucket", "", configPath, "")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			t.Fatalf("failed to read generated config: %v", err)
+		}
+
+		var config LitestreamConfig
+		if err := yaml.Unmarshal(data, &config); err != nil {
+			t.Fatalf("failed to parse generated YAML: %v", err)
+		}
+
+		if config.DBs[0].Replicas[0].SnapshotInterval != "" {
+			t.Errorf("expected empty snapshot-interval, got %s", config.DBs[0].Replicas[0].SnapshotInterval)
+		}
+	})
+
 	t.Run("should create directory if not exists", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		configPath := filepath.Join(tmpDir, "nested", "dir", "litestream.yml")
 
-		err := GenerateLitestreamConfig("/data/app.db", "test-bucket", "", configPath)
+		err := GenerateLitestreamConfig("/data/app.db", "test-bucket", "", configPath, "24h")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}

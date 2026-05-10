@@ -197,6 +197,10 @@ func restoreSQLite(ctx context.Context, bucket, s3Endpoint, dbPath string, timeo
 	}
 	defer os.Remove(configPath)
 
+	if n, err := countWALSegments(ctx, configPath, dbPath); err == nil {
+		log.Printf("[dataangel] WAL segments to restore: %d", n)
+	}
+
 	args := []string{
 		"restore",
 		"-config", configPath,
@@ -320,6 +324,26 @@ func restoreFilesystem(ctx context.Context, bucket, s3Endpoint, fsPath string, t
 
 	log.Printf("[dataangel] Filesystem restored: %s (elapsed: %v)", fsPath, time.Since(start).Round(time.Millisecond))
 	return nil
+}
+
+// countWALSegments runs `litestream wal` to count pending WAL segments before restore.
+// Errors are non-fatal — caller logs the count only on success.
+func countWALSegments(ctx context.Context, configPath, dbPath string) (int, error) {
+	walCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(walCtx, "litestream", "wal", "-config", configPath, dbPath).Output()
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if strings.TrimSpace(line) != "" {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // RunRestore executes the restore phase (all SQLite DBs + all filesystem paths)

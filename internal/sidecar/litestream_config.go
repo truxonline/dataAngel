@@ -19,12 +19,14 @@ type LitestreamDB struct {
 }
 
 type LitestreamReplica struct {
-	URL      string `yaml:"url"`
-	Endpoint string `yaml:"endpoint,omitempty"`
+	URL              string `yaml:"url"`
+	Endpoint         string `yaml:"endpoint,omitempty"`
+	SnapshotInterval string `yaml:"snapshot-interval,omitempty"`
 }
 
-// GenerateLitestreamConfig creates a litestream config file for a given SQLite database
-func GenerateLitestreamConfig(dbPath, bucket, s3Endpoint, outputPath string) error {
+// GenerateLitestreamConfig creates a litestream config file for a given SQLite database.
+// snapshotInterval caps WAL chain length to bound restore time (e.g. "24h").
+func GenerateLitestreamConfig(dbPath, bucket, s3Endpoint, outputPath, snapshotInterval string) error {
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
@@ -33,7 +35,8 @@ func GenerateLitestreamConfig(dbPath, bucket, s3Endpoint, outputPath string) err
 	s3URL := fmt.Sprintf("s3://%s/%s", bucket, dbName)
 
 	replica := LitestreamReplica{
-		URL: s3URL,
+		URL:              s3URL,
+		SnapshotInterval: snapshotInterval,
 	}
 
 	if s3Endpoint != "" {
